@@ -393,7 +393,7 @@ class CNNICVAE(nn.Module):
         kld_loss = torch.sum(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
         # supervised_loss = self.bce(prediction['y_decoded'], y.unsqueeze(1))
         # print(supervised_loss)
-        loss = 0.01 * (recons_loss + kld_loss) / len(y)
+        loss = 0.1 * (recons_loss + kld_loss) / len(y)
         # loss = 0.1 * loss + 10*supervised_loss
         # loss = 0.1 * (recons_loss + kld_loss) + 10*supervised_loss
         # print("recons_loss", recons_loss)

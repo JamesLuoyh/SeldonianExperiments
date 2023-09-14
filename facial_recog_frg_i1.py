@@ -17,11 +17,11 @@ sub_regime = "classification"
 N=23700
 print("Loading features,labels,sensitive_attrs from file...")
 
-savename_features = '/media/yuhongluo/face_recog/features.pkl'
-savename_gender_labels = '/media/yuhongluo/face_recog/gender_labels.pkl'
-savename_age_labels = '/media/yuhongluo/face_recog/age_labels.pkl'
-savename_sensitive_attrs = '/media/yuhongluo/face_recog/sensitive_attrs.pkl'
-save_dir = "/media/yuhongluo/SeldonianExperimentSpecs/vfae/spec/"
+savename_features = './face_recog/features.pkl'
+savename_gender_labels = './face_recog/gender_labels.pkl'
+savename_age_labels = './face_recog/age_labels.pkl'
+savename_sensitive_attrs = './face_recog/sensitive_attrs.pkl'
+save_dir = "./SeldonianExperimentSpecs/vfae/spec/"
 features = load_pickle(savename_features)
 age_labels = load_pickle(savename_age_labels)
 gender_labels = load_pickle(savename_gender_labels)
@@ -52,8 +52,9 @@ dataset = SupervisedDataSet(
 regime='supervised_learning'
 # epsilon = 0.4
 # deltas = [0.1]
-epsilon = 0.1
-deltas = [0.05]
+epsilon = 1.86
+deltas = [0.7]
+
 constraint_strs = [f'VAE <= {epsilon}']
 
 print("Making parse trees for constraint(s):")
@@ -75,6 +76,7 @@ model = PytorchFacialVAE(device, **{"x_dim": features.shape[1],
         "alpha_adv": 1e-3,
         "mi_version": 1
         })
+        
 lambda_init = 1.0
 initial_solution_fn = model.get_model_params
 spec = SupervisedSpec(
@@ -113,7 +115,7 @@ spec = SupervisedSpec(
     batch_size_safety=237
 )
 spec_save_name = os.path.join(
-  save_dir, f"unsupervised_age_cnn_vfae_1_mutual_information_{epsilon}.pkl"
+  save_dir, f"unsupervised_cnn_vfae_1_mutual_information_{epsilon}_.pkl"
 )
 save_pickle(spec_save_name, spec)
 print(f"Saved Spec object to: {spec_save_name}")

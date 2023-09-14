@@ -275,21 +275,21 @@ class CandidateSelection(object):
 			res['batch_size'] = batch_size
 			res['n_epochs'] = n_epochs
 
-			if self.write_logfile:
-				log_counter = 0
-				logdir = os.path.join('/media/yuhongluo/SeldonianEngine/',
-					'logs')
-				os.makedirs(logdir,exist_ok=True)
-				filename = os.path.join(logdir,
-					f'candidate_selection_log{log_counter}.p')
+			# if self.write_logfile:
+			# 	log_counter = 0
+			# 	logdir = os.path.join('.',
+			# 		'logs')
+			# 	os.makedirs(logdir,exist_ok=True)
+			# 	filename = os.path.join(logdir,
+			# 		f'candidate_selection_log{log_counter}.p')
 
-				while os.path.exists(filename):
-					filename = filename.replace(
-						f'log{log_counter}',f'log{log_counter+1}')
-					log_counter+=1
-				with open(filename,'wb') as outfile:
-					pickle.dump(res,outfile)
-					print(f"Wrote {filename} with candidate selection log info")
+			# 	while os.path.exists(filename):
+			# 		filename = filename.replace(
+			# 			f'log{log_counter}',f'log{log_counter+1}')
+			# 		log_counter+=1
+			# 	with open(filename,'wb') as outfile:
+			# 		pickle.dump(res,outfile)
+			# 		print(f"Wrote {filename} with candidate selection log info")
 
 			
 			candidate_solution = res['candidate_solution']

@@ -230,11 +230,6 @@ class VariationalMLP(Module):
         # reparameterization trick: we draw a random z
         # epsilon = torch.randn_like(mu)
         epsilon = torch.normal(mean=0, std=1, size=sigma.shape).to(mu.get_device())
-        print(epsilon[0])
-        print(torch.randn_like(mu)[0])
-        print(sigma[0])
-        print(mu[0])
-        print("_"*50)
         z = logvar * epsilon + mu # torch.randn_like(mu) epsilon * mu + logvar #
         return z, logvar, mu
 

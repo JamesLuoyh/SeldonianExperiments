@@ -275,20 +275,20 @@ class BaselineExperiment(Experiment):
             if dataset_name == 'Adult':
                 if validation:
                     resampled_filename = os.path.join(
-                        "/media/yuhongluo/SeldonianExperimentResults/Adult", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                        "./SeldonianExperimentResults/Adult", "resampled_dataframes", f"trial_{trial_i}.pkl"
                     )
                 else:
                     resampled_filename = os.path.join(
-                        "/media/yuhongluo/SeldonianExperimentResults/Adult_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                        "./SeldonianExperimentResults/Adult_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
                     )
             elif dataset_name == 'Face':
                 if validation:
                     resampled_filename = os.path.join(
-                        "/media/yuhongluo/SeldonianExperimentResults/Face", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                        "./SeldonianExperimentResults/Face", "resampled_dataframes", f"trial_{trial_i}.pkl"
                     )
                 else:
                     resampled_filename = os.path.join(
-                        "/media/yuhongluo/SeldonianExperimentResults/Adult_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                        "./SeldonianExperimentResults/Face_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
                     )
             resampled_dataset = load_pickle(resampled_filename)
             num_datapoints_tot = resampled_dataset.num_datapoints
@@ -765,11 +765,20 @@ class SeldonianExperiment(Experiment):
                 if dataset_name == 'Adult':
                     if validation:
                         resampled_filename = os.path.join(
-                            "/media/yuhongluo/SeldonianExperimentResults/Adult", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                            "./SeldonianExperimentResults/Adult", "resampled_dataframes", f"trial_{trial_i}.pkl"
                         )
                     else:
                         resampled_filename = os.path.join(
-                            "/media/yuhongluo/SeldonianExperimentResults/Adult_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                            "./SeldonianExperimentResults/Adult_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                        )
+                elif dataset_name == 'Face':
+                    if validation:
+                        resampled_filename = os.path.join(
+                            "./SeldonianExperimentResults/Face", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                        )
+                    else:
+                        resampled_filename = os.path.join(
+                            "./SeldonianExperimentResults/Face_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
                         )
                 resampled_dataset = load_pickle(resampled_filename)
                 num_datapoints_tot = resampled_dataset.num_datapoints

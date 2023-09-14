@@ -155,8 +155,7 @@ def gradient_descent_adam(
 
             batch_calculator(batch_index,batch_size)
             primary_val = primary_objective(theta)
-            # g_vec = upper_bounds_function(theta)
-            g_vec = np.array([0.0])
+            g_vec = upper_bounds_function(theta)
             L_val = primary_val + sum(lamb*g_vec) 
             if debug and batch_index % 10 == 0:
                 print("epoch,batch_i,overall_i,f,g,theta,lambda:",epoch,batch_index,gd_index,primary_val,g_vec,theta,lamb)
@@ -196,7 +195,7 @@ def gradient_descent_adam(
 
             # Obtain gradients of both terms in Lagrangian 
             # at current values of theta and lambda
-            # gu_theta_vec = grad_upper_bound_theta(theta)
+            gu_theta_vec = grad_upper_bound_theta(theta)
             # print("grad_upper_bound_theta")
             grad_primary_theta_val = grad_primary_theta(theta)
 
@@ -209,8 +208,8 @@ def gradient_descent_adam(
             # gu_theta_vec = np.zeros_like(gu_theta_vec)
             #         grad_primary_theta_val = np.zeros_like(grad_primary_theta_val)
             
-            # grad_secondary_theta_val_vec = gu_theta_vec * lamb[:, None] ## to multiply each row of gu_theta_vec by elements of lamb
-            gradient_theta = grad_primary_theta_val #+ np.sum(grad_secondary_theta_val_vec,axis=0) - np.sum(gu_theta_vec,axis=0)
+            grad_secondary_theta_val_vec = gu_theta_vec * lamb[:, None] ## to multiply each row of gu_theta_vec by elements of lamb
+            gradient_theta = grad_primary_theta_val + np.sum(grad_secondary_theta_val_vec,axis=0) - np.sum(gu_theta_vec,axis=0)
             
             # gradient w.r.t. to lambda is just g
             gradient_lamb_vec = g_vec
@@ -277,7 +276,7 @@ def gradient_descent_adam(
     solution['theta_vals'] = np.array(theta_vals)
     solution['f_vals'] = np.array(f_vals)
     solution['lamb_vals'] = np.array(lamb_vals)
-    solution['g_vals'] = np.array(g_vals)
+    # solution['g_vals'] = np.array(g_vals)
     solution['L_vals'] = np.array(L_vals)
 
     return solution

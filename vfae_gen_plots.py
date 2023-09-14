@@ -26,7 +26,7 @@ def vfae_example(
     spec_rootdir,
     results_base_dir,
     constraints = [],
-    epsilons=[0.32],#[100],#0.32],#0.32],#[0.3],#[0.1],#[0.0069],0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1], #[0.0069],# 0.01, , 0.02],
+    epsilons=[100],#[0.32],#0.32],#0.32],#[0.3],#[0.1],#[0.0069],0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1], #[0.0069],# 0.01, , 0.02],
     n_trials=10,#10,
     data_fracs=np.logspace(-3,0,5),
     baselines = [],
@@ -204,7 +204,7 @@ def vfae_example(
                                 'X':test_features,
                                 'y':test_labels,
                                 'performance_metric':['auc', 'dp'],
-                                'device': torch.device(1),
+                                'device': torch.device(0),
                                 's_dim': orig_sensitive_attrs.shape[1]
                             }
                             # constraint_eval_kwargs = {
@@ -282,10 +282,10 @@ if __name__ == "__main__":
 
     performance_metric="dp"
 
-    results_base_dir = f"/media/yuhongluo/SeldonianExperimentResults"
+    results_base_dir = f"./SeldonianExperimentResults"
     dataset = ADULTS
     vfae_example(
-        spec_rootdir="/media/yuhongluo/SeldonianExperimentSpecs/vfae/spec", # icvae
+        spec_rootdir="./SeldonianExperimentSpecs/vfae/spec", # icvae
         results_base_dir=results_base_dir,
         # constraints = [constraint],
         # epsilons=[epsilon],

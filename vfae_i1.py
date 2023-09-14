@@ -18,7 +18,7 @@ ADULTS = "adults"
 GERMAN = "german"
 
 
-save_dir = "/media/yuhongluo/SeldonianExperimentSpecs/vfae/spec"
+save_dir = "./SeldonianExperimentSpecs/vfae/spec"
 os.makedirs(save_dir, exist_ok=True)
 
 if __name__ == "__main__":
