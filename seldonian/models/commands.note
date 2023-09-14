@@ -1,0 +1,10 @@
+conda create --name seld python=3.9
+conda activate seld
+conda install pytorch==1.12.0 torchvision==0.13.0 torchaudio==0.12.0 cudatoolkit=10.2 -c pytorch
+conda install -c conda-forge autograd
+conda install pandas
+conda install scikit-learn
+conda install python-graphviz
+conda install -c conda-forge matplotlib
+
+

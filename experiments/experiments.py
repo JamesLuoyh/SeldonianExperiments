@@ -25,7 +25,7 @@ from seldonian.models.models import (
     RandomClassifierModel,
 )
 
-from .utils import batch_predictions
+from .utils import batch_predictions, vae_predictions, unsupervised_downstream_predictions
 
 try:
     from fairlearn.reductions import ExponentiatedGradient
@@ -86,18 +86,36 @@ class Experiment:
         df_list = []
         for data_frac in kwargs["data_fracs"]:
             for trial_i in range(kwargs["n_trials"]):
-                filename = os.path.join(
-                    trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}.csv"
-                )
-                df = pd.read_csv(filename)
-                df_list.append(df)
+                if kwargs["n_downstreams"] > 0:
+                    for i in range(kwargs["n_downstreams"]):
+                        if len(df_list) <= i:
+                            df_list.append([])
+                        filename = os.path.join(
+                            trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}_downstream_{i}.csv"
+                        )
+                        df = pd.read_csv(filename)
+                        df_list[i].append(df)
+                else:
+                    filename = os.path.join(
+                        trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}.csv"
+                    )
+                    df = pd.read_csv(filename)
+                    df_list.append(df)
 
-        result_df = pd.concat(df_list)
-        result_df.to_csv(savename_results, index=False)
+        if kwargs["n_downstreams"] > 0:
+            for i in range(kwargs["n_downstreams"]):
+                result_df = pd.concat(df_list[i])
+                savename_results = os.path.join(
+                    savedir_results, f"{self.model_name}_results_downstream_{i}.csv"
+                )
+                result_df.to_csv(savename_results, index=False)
+        else:
+            result_df = pd.concat(df_list)
+            result_df.to_csv(savename_results, index=False)
         print(f"Saved {savename_results}")
         return
 
-    def write_trial_result(self, data, colnames, trial_dir, verbose=False):
+    def write_trial_result(self, data, colnames, trial_dir, downstream_i=None, verbose=False):
         """Write out the results from a single trial
         to a file.
 
@@ -117,10 +135,14 @@ class Experiment:
         result_df = pd.DataFrame([data])
         result_df.columns = colnames
         data_frac, trial_i = data[0:2]
-
-        savename = os.path.join(
-            trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}.csv"
-        )
+        if downstream_i is not None:
+            savename = os.path.join(
+                trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}_downstream_{downstream_i}.csv"
+            )
+        else:
+            savename = os.path.join(
+                trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}.csv"
+            )
 
         result_df.to_csv(savename, index=False)
         if verbose:
@@ -203,6 +225,8 @@ class BaselineExperiment(Experiment):
         perf_eval_kwargs = kwargs["perf_eval_kwargs"]
         batch_epoch_dict = kwargs["batch_epoch_dict"]
         constraint_eval_kwargs = kwargs["constraint_eval_kwargs"]
+        validation = kwargs["validation"]
+        dataset_name = kwargs["dataset_name"]
         if (
             batch_epoch_dict == {}
             and (spec.optimization_technique == "gradient_descent")
@@ -227,6 +251,11 @@ class BaselineExperiment(Experiment):
             trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}.csv"
         )
 
+        if kwargs['n_downstreams'] > 0:
+            savename = os.path.join(
+                trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}_downstream_0.csv"
+            )
+
         if os.path.exists(savename):
             if verbose:
                 print(
@@ -240,9 +269,27 @@ class BaselineExperiment(Experiment):
         ##############################################
 
         if datagen_method == "resample":
-            resampled_filename = os.path.join(
-                self.results_dir, "resampled_dataframes", f"trial_{trial_i}.pkl"
-            )
+            # resampled_filename = os.path.join(
+            #     self.results_dir, "resampled_dataframes", f"trial_{trial_i}.pkl"
+            # )
+            if dataset_name == 'Adult':
+                if validation:
+                    resampled_filename = os.path.join(
+                        "/media/yuhongluo/SeldonianExperimentResults/Adult", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                    )
+                else:
+                    resampled_filename = os.path.join(
+                        "/media/yuhongluo/SeldonianExperimentResults/Adult_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                    )
+            elif dataset_name == 'Face':
+                if validation:
+                    resampled_filename = os.path.join(
+                        "/media/yuhongluo/SeldonianExperimentResults/Face", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                    )
+                else:
+                    resampled_filename = os.path.join(
+                        "/media/yuhongluo/SeldonianExperimentResults/Adult_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                    )
             resampled_dataset = load_pickle(resampled_filename)
             num_datapoints_tot = resampled_dataset.num_datapoints
             n_points = int(round(data_frac * num_datapoints_tot))
@@ -266,7 +313,28 @@ class BaselineExperiment(Experiment):
             features = [x[:n_points] for x in features]
         else:
             features = features[:n_points]
-        labels = labels[:n_points]
+        
+        if type(labels) == list:
+            labels = [x[:n_points] for x in labels]
+        else:
+            labels = labels[:n_points]
+
+        # resample n data ponts. For representation learning use case
+        # ix_resamp = np.random.choice(
+        #     range(n_points), num_datapoints_tot, replace=True
+        # )
+        # if type(features) == list:
+        #     features = [x[ix_resamp] for x in features]
+        # else:
+        #     features = features[ix_resamp]
+        # if type(labels) == list:
+        #     labels = [x[ix_resamp] for x in labels]
+        # else:
+        #     labels = labels[ix_resamp]
+        # # sensitive_attrs = sensitive_attrs[ix_resamp]
+
+        # # print(sensitive_attrs.shape)
+        # n_points = num_datapoints_tot
 
         ####################################################
         """" Instantiate model and fit to resampled data """
@@ -307,7 +375,7 @@ class BaselineExperiment(Experiment):
 
         if self.model_name == "facial_recog_cnn":
             from .baselines.facial_recog_cnn import PytorchFacialRecog
-
+            
             device = perf_eval_kwargs["device"]
             baseline_model = PytorchFacialRecog(device=device)
             batch_size, n_epochs = batch_epoch_dict[data_frac]
@@ -318,6 +386,192 @@ class BaselineExperiment(Experiment):
             y_pred = batch_predictions(
                 baseline_model, solution, X_test_baseline, **perf_eval_kwargs
             )
+        if self.model_name == "vfae":
+            from .baselines.vfae_baseline import PytorchVFAE
+            device = perf_eval_kwargs["device"]
+            s_dim = spec.optimization_hyperparams.get('s_dim', 1)
+            baseline_model = PytorchVFAE(device=device, **{"x_dim": spec.optimization_hyperparams["x_dim"],
+            "s_dim": s_dim,
+            "y_dim": 1,
+            "z1_enc_dim": 100,
+            "z2_enc_dim": 100,
+            "z1_dec_dim": 100,
+            "x_dec_dim": 100,
+            "z_dim": spec.optimization_hyperparams["z_dim"],
+            "dropout_rate": 0.0,
+            "lr": spec.optimization_hyperparams["lr"],
+            "epsilon": spec.optimization_hyperparams["epsilon"],
+            "use_validation": validation
+            })
+
+            batch_size, n_epochs = batch_epoch_dict[data_frac]
+            baseline_model.train(
+                features, labels, batch_size=batch_size, num_epochs=n_epochs
+            )
+            perf_eval_kwargs['eval_batch_size'] = len(X_test_baseline)
+            solution = baseline_model.get_model_params()
+            y_pred = vae_predictions(
+                baseline_model, solution, X_test_baseline, **perf_eval_kwargs
+            )
+        if self.model_name == "controllable_vfae" or self.model_name == 'lmifr':
+            if self.model_name == "controllable_vfae":
+                from .baselines.controllable_vfae import PytorchLMIFR
+            else:
+                from.baselines.lmifr_all import PytorchLMIFR
+            device = perf_eval_kwargs["device"]
+            s_dim = spec.optimization_hyperparams.get('s_dim', 1)
+            baseline_model = PytorchLMIFR(device=device, **{"x_dim": spec.optimization_hyperparams["x_dim"],
+            "s_dim": s_dim,
+            "y_dim": 1,
+            "z1_enc_dim": 100,
+            "z2_enc_dim": 100,
+            "z1_dec_dim": 100,
+            "x_dec_dim": 100,
+            "z_dim": spec.optimization_hyperparams["z_dim"],
+            "dropout_rate": 0.0,
+            "lr": spec.optimization_hyperparams["lr"],
+            "epsilon": spec.optimization_hyperparams["epsilon"],
+            "lambda_init": spec.optimization_hyperparams["lambda_init"][0],
+            "use_validation": validation
+            })
+
+            pu = np.mean(features[:, - s_dim - 1: -1])
+            baseline_model.set_pu(pu)
+            batch_size, n_epochs = batch_epoch_dict[data_frac]
+            baseline_model.train(
+                features, labels, batch_size=batch_size, num_epochs=n_epochs
+            )
+            perf_eval_kwargs['eval_batch_size'] = len(X_test_baseline)
+            solution = baseline_model.get_model_params()
+            y_pred = vae_predictions(
+                baseline_model, solution, X_test_baseline, **perf_eval_kwargs
+            )
+        if self.model_name == "icvae_baseline":
+            from .baselines.icvae_noadv import PytorchICVAEBaseline
+
+            device = perf_eval_kwargs["device"]
+            baseline_model = PytorchICVAEBaseline(device=device, **{"x_dim": spec.optimization_hyperparams["x_dim"],
+            "s_dim": spec.optimization_hyperparams.get('s_dim', 1),
+            "y_dim": 1,
+            "z1_enc_dim": 100,
+            "z2_enc_dim": 100,
+            "z1_dec_dim": 100,
+            "x_dec_dim": 100,
+            "z_dim": spec.optimization_hyperparams["z_dim"],
+            "dropout_rate": 0.0,
+            "lr": spec.optimization_hyperparams["lr"],
+            "use_validation": validation
+            })
+
+            batch_size, n_epochs = batch_epoch_dict[data_frac]
+            baseline_model.train(
+                features, labels, batch_size=batch_size, num_epochs=n_epochs
+            )
+            perf_eval_kwargs['eval_batch_size'] = 500
+            solution = baseline_model.get_model_params()
+            # y_pred = vae_predictions(
+            #     baseline_model, solution, X_test_baseline, **perf_eval_kwargs
+            # )
+            # perf_eval_kwargs['eval_batch_size'] = spec.optimization_hyperparams["downstream_bs"]
+            # perf_eval_kwargs["downstream_bs"] = spec.optimization_hyperparams["downstream_bs"]
+            # perf_eval_kwargs["downstream_epochs"] = spec.optimization_hyperparams["downstream_epochs"]
+            # perf_eval_kwargs["downstream_lr"] = spec.optimization_hyperparams["downstream_lr"]
+            # perf_eval_kwargs["z_dim"] = spec.optimization_hyperparams["z_dim"]
+            # perf_eval_kwargs["y_dim"] = spec.optimization_hyperparams["y_dim"]
+            y_pred = vae_predictions(model=baseline_model, solution=solution, X_test=X_test_baseline, **perf_eval_kwargs)
+            
+            # if type(labels) == list:
+            #     y_preds = []
+            #     for y in labels:
+            #         y_pred = unsupervised_downstream_predictions(
+            #             model=baseline_model, solution=solution,  X_train=features, Y_train=y, X_test=X_test_baseline, **perf_eval_kwargs)
+            #         y_pred = None, None, y_pred
+            #         y_preds.append(y_pred)
+            #     y_pred = y_preds
+            # else:
+            #     y_pred = unsupervised_downstream_predictions(
+            #         model=baseline_model, solution=solution,  X_train=features, Y_train=labels, X_test=X_test_baseline, **perf_eval_kwargs)
+            #     y_pred = None, None, y_pred
+
+        if self.model_name == "fcrl_baseline":
+            from .baselines.fcrl_baseline import PytorchFCRLBaseline
+
+            device = perf_eval_kwargs["device"]
+            baseline_model = PytorchFCRLBaseline(device=device, **{"x_dim": spec.optimization_hyperparams["x_dim"],
+            "s_dim": spec.optimization_hyperparams.get('s_dim', 1),
+            "y_dim": 1,
+            "z1_enc_dim": 100,
+            "z2_enc_dim": 100,
+            "z1_dec_dim": 100,
+            "x_dec_dim": 100,
+            "z_dim": spec.optimization_hyperparams["z_dim"],
+            "dropout_rate": 0.0,
+            "lr": spec.optimization_hyperparams["lr"],
+            "s_num": spec.optimization_hyperparams["s_num"],
+            "nce_size": spec.optimization_hyperparams["nce_size"],
+            "use_validation": validation
+            })
+
+            batch_size, n_epochs = batch_epoch_dict[data_frac]
+            baseline_model.train(
+                features, labels, batch_size=batch_size, num_epochs=n_epochs
+            )
+            perf_eval_kwargs['eval_batch_size'] = constraint_eval_kwargs["eval_batch_size"]
+            solution = baseline_model.get_model_params()
+            y_pred = vae_predictions(
+                baseline_model, solution, X_test_baseline, **perf_eval_kwargs
+            )
+        if self.model_name == "cnn_controllable_vfae" or self.model_name == "cnn_icvae" or self.model_name == "cnn_lmifr_all":
+            if self.model_name == "cnn_controllable_vfae":
+                from .baselines.cnn_controllable_vfae import PytorchCNNLMIFR as model
+            elif self.model_name == "cnn_lmifr_all":
+                from .baselines.cnn_lmifr_all import PytorchCNNLMIFR as model
+            elif self.model_name == "cnn_icvae":
+                from .baselines.cnn_icvae import PytorchCNNICVAE as model
+            device = perf_eval_kwargs["device"]
+            baseline_model = model(device=device, **{"x_dim": -1,
+                "s_dim": 5,
+                "y_dim": 1,
+                "z1_enc_dim": 100,
+                "z2_enc_dim": 100,
+                "z1_dec_dim": 100,
+                "x_dec_dim": 100,
+                "z_dim": spec.optimization_hyperparams["z_dim"],
+                "dropout_rate": 0.0,
+                "lr": spec.optimization_hyperparams["alpha_theta"],
+                "epsilon": spec.optimization_hyperparams["epsilon"],
+                "lambda_init": spec.optimization_hyperparams["lambda_init"][0],
+                "use_validation": validation
+            })
+            X, S, Y = features
+            pu = np.mean(S, axis=0)
+            baseline_model.set_pu(pu)
+            batch_size, n_epochs = batch_epoch_dict[data_frac]
+            baseline_model.train(
+                features, labels, batch_size=batch_size, num_epochs=n_epochs
+            )
+            # perf_eval_kwargs['eval_batch_size'] = len(X_test_baseline)
+            perf_eval_kwargs['eval_batch_size'] = spec.optimization_hyperparams["downstream_bs"]
+            solution = baseline_model.get_model_params()
+            perf_eval_kwargs["downstream_bs"] = spec.optimization_hyperparams["downstream_bs"]
+            perf_eval_kwargs["downstream_epochs"] = spec.optimization_hyperparams["downstream_epochs"]
+            perf_eval_kwargs["downstream_lr"] = spec.optimization_hyperparams["downstream_lr"]
+            perf_eval_kwargs["z_dim"] = spec.optimization_hyperparams["z_dim"]
+            perf_eval_kwargs["y_dim"] = spec.optimization_hyperparams["y_dim"]
+            # y_pred = vae_predictions(model=baseline_model, solution=solution, X_test=X_test_baseline, **perf_eval_kwargs)
+            
+            if type(labels) == list:
+                y_preds = []
+                for y in labels:
+                    y_pred = unsupervised_downstream_predictions(
+                        model=baseline_model, solution=solution,  X_train=features, Y_train=y, X_test=X_test_baseline, **perf_eval_kwargs)
+                    y_pred = None, None, y_pred
+                    y_preds.append(y_pred)
+                y_pred = y_preds
+            else:
+                y_pred = unsupervised_downstream_predictions(
+                    model=baseline_model, solution=solution,  X_train=features, Y_train=labels, X_test=X_test_baseline, **perf_eval_kwargs)
+                y_pred = None, None, y_pred
 
         #########################################################
         """" Calculate performance and safety on ground truth """
@@ -333,14 +587,24 @@ class BaselineExperiment(Experiment):
 
         failed = False  # flag for whether we were actually safe on test set
         if solution_found:
-            performance = perf_eval_fn(y_pred, **perf_eval_kwargs)
-
+            if type(y_pred) != list:
+                performance  = [fn(y_pred, **perf_eval_kwargs) for fn in perf_eval_fn]
+            else:
+                performances = []
+                labels = perf_eval_kwargs['y']
+                for i in range(len(y_pred)):
+                    perf_eval_kwargs['y'] = labels[i]
+                    performance = [fn(y_pred[i], **perf_eval_kwargs) for fn in perf_eval_fn]
+                    performances.append(performance)
+                performance = performances
+                perf_eval_kwargs['y'] = labels
             if verbose:
                 print(f"Performance = {performance}")
             if "eval_batch_size" in constraint_eval_kwargs:
                 batch_size_safety = constraint_eval_kwargs["eval_batch_size"]
+                print(batch_size_safety)
             else:
-                batch_size_safety = None
+                batch_size_safety = spec.batch_size_safety
             # Determine whether this solution
             # violates any of the constraints
             # on the test dataset, which is the dataset from spec
@@ -356,7 +620,7 @@ class BaselineExperiment(Experiment):
                 )
 
                 g = parse_tree.root.value
-
+                parse_tree.reset_base_node_dict(reset_data=True)
                 if g > 0 or np.isnan(g):
                     failed = True
                     if verbose:
@@ -368,9 +632,14 @@ class BaselineExperiment(Experiment):
             performance = np.nan
 
         # Write out file for this data_frac,trial_i combo
-        data = [data_frac, trial_i, performance, failed]
-        colnames = ["data_frac", "trial_i", "performance", "failed"]
-        self.write_trial_result(data, colnames, trial_dir, verbose=kwargs["verbose"])
+        colnames = ["data_frac", "trial_i", *[fn.__name__ for fn in perf_eval_fn], "g", "failed"]
+        if type(performance) == list and type(performance[0]) == list :
+            for i in range(len(performance)):
+                data = [data_frac, trial_i, *(performance[i]), g, failed]
+                self.write_trial_result(data, colnames, trial_dir, downstream_i=i, verbose=kwargs["verbose"])
+        else:
+                data = [data_frac, trial_i, *performance, g, failed]
+                self.write_trial_result(data, colnames, trial_dir, verbose=kwargs["verbose"])
         return
 
 
@@ -388,11 +657,11 @@ class SeldonianExperiment(Experiment):
 
         """
         super().__init__(model_name, results_dir)
-        if self.model_name != "qsa":
-            raise NotImplementedError(
-                "Seldonian experiments for model: "
-                f"{self.model_name} are not supported."
-            )
+        # if self.model_name != "qsa":
+        #     raise NotImplementedError(
+        #         "Seldonian experiments for model: "
+        #         f"{self.model_name} are not supported."
+        #     )
 
     def run_experiment(self, **kwargs):
         """Run the Seldonian experiment"""
@@ -400,7 +669,7 @@ class SeldonianExperiment(Experiment):
         partial_kwargs = {
             key: kwargs[key] for key in kwargs if key not in ["data_fracs", "n_trials"]
         }
-
+        partial_kwargs['model_name'] = self.model_name
         # Pass partial_kwargs onto self.QSA()
         helper = partial(self.run_QSA_trial, **partial_kwargs)
 
@@ -449,6 +718,9 @@ class SeldonianExperiment(Experiment):
         constraint_eval_fns = kwargs["constraint_eval_fns"]
         constraint_eval_kwargs = kwargs["constraint_eval_kwargs"]
         batch_epoch_dict = kwargs["batch_epoch_dict"]
+        validation = kwargs["validation"]
+        model_name = kwargs["model_name"]
+        dataset_name = kwargs["dataset_name"]
         if batch_epoch_dict == {} and spec.optimization_technique == "gradient_descent":
             warning_msg = (
                 "WARNING: No batch_epoch_dict was provided. "
@@ -460,11 +732,16 @@ class SeldonianExperiment(Experiment):
             warnings.warn(warning_msg)
         regime = spec.dataset.regime
 
-        trial_dir = os.path.join(self.results_dir, "qsa_results", "trial_data")
+        trial_dir = os.path.join(self.results_dir, f"{model_name}_results", "trial_data")
 
         savename = os.path.join(
             trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}.csv"
         )
+
+        if kwargs['n_downstreams'] > 0:
+            savename = os.path.join(
+                trial_dir, f"data_frac_{data_frac:.4f}_trial_{trial_i}_downstream_0.csv"
+            )
 
         if os.path.exists(savename):
             if verbose:
@@ -485,11 +762,19 @@ class SeldonianExperiment(Experiment):
 
         if regime == "supervised_learning":
             if datagen_method == "resample":
-                resampled_filename = os.path.join(
-                    self.results_dir, "resampled_dataframes", f"trial_{trial_i}.pkl"
-                )
+                if dataset_name == 'Adult':
+                    if validation:
+                        resampled_filename = os.path.join(
+                            "/media/yuhongluo/SeldonianExperimentResults/Adult", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                        )
+                    else:
+                        resampled_filename = os.path.join(
+                            "/media/yuhongluo/SeldonianExperimentResults/Adult_test", "resampled_dataframes", f"trial_{trial_i}.pkl"
+                        )
                 resampled_dataset = load_pickle(resampled_filename)
                 num_datapoints_tot = resampled_dataset.num_datapoints
+                if dataset_name == 'Adult':
+                    assert(num_datapoints_tot == 32827)
                 n_points = int(round(data_frac * num_datapoints_tot))
 
                 if verbose:
@@ -512,9 +797,28 @@ class SeldonianExperiment(Experiment):
                     features = [x[:n_points] for x in features]
                 else:
                     features = features[:n_points]
-                labels = labels[:n_points]
+                if type(labels) == list:
+                    labels = [x[:n_points] for x in labels]
+                else:
+                    labels = labels[:n_points]
                 sensitive_attrs = sensitive_attrs[:n_points]
 
+                # resample n data ponts. For representation learning use case
+                ix_resamp = np.random.choice(
+                    range(n_points), num_datapoints_tot, replace=True
+                )
+                if type(features) == list:
+                    features = [x[ix_resamp] for x in features]
+                else:
+                    features = features[ix_resamp]
+                if type(labels) == list:
+                    labels = [x[ix_resamp] for x in labels]
+                else:
+                    labels = labels[ix_resamp]
+                sensitive_attrs = sensitive_attrs[ix_resamp]
+
+                print(sensitive_attrs.shape)
+                n_points = num_datapoints_tot
             else:
                 raise NotImplementedError(
                     f"Eval method {datagen_method} "
@@ -596,7 +900,6 @@ class SeldonianExperiment(Experiment):
         ################################
         """" Run Seldonian algorithm """
         ################################
-
         try:
             SA = SeldonianAlgorithm(spec_for_experiment)
             passed_safety, solution = SA.run(write_cs_logfile=verbose, debug=verbose)
@@ -620,7 +923,7 @@ class SeldonianExperiment(Experiment):
         #########################################################
 
         failed = False  # flag for whether we were actually safe on test set
-
+        g = 0
         if solution_found:
             solution = copy.deepcopy(solution)
             # If passed the safety test, calculate performance
@@ -636,19 +939,49 @@ class SeldonianExperiment(Experiment):
                     X_test = perf_eval_kwargs["X"]
                     Y_test = perf_eval_kwargs["y"]
                     model = SA.model
-                    # Batch the prediction if specified
-                    if "eval_batch_size" in perf_eval_kwargs:
-                        y_pred = batch_predictions(
-                            model=model,
-                            solution=solution,
-                            X_test=X_test,
-                            **perf_eval_kwargs,
-                        )
+                    if spec.dataset.meta_information.get("self_supervised", False):
+                        # train downstream supervised model
+                        perf_eval_kwargs["downstream_bs"] = spec_for_experiment.optimization_hyperparams["downstream_bs"]
+                        perf_eval_kwargs["eval_batch_size"] = spec_for_experiment.optimization_hyperparams["downstream_bs"]
+                        perf_eval_kwargs["downstream_epochs"] = spec_for_experiment.optimization_hyperparams["downstream_epochs"]
+                        perf_eval_kwargs["downstream_lr"] = spec_for_experiment.optimization_hyperparams["downstream_lr"]
+                        perf_eval_kwargs["z_dim"] = spec_for_experiment.optimization_hyperparams["z_dim"]
+                        perf_eval_kwargs["y_dim"] = spec_for_experiment.optimization_hyperparams["y_dim"]
+                        # y_pred = vae_predictions(model=model, solution=solution, X_test=X_test, **perf_eval_kwargs)
+                        if type(labels) == list:
+                            y_preds = []
+                            for y in labels:
+                                y_pred = unsupervised_downstream_predictions(
+                                    model=model, solution=solution,  X_train=features, Y_train=y, X_test=X_test, **perf_eval_kwargs)
+                                y_pred = None, None, y_pred
+                                y_preds.append(y_pred)
+                            y_pred = y_preds
+                        else:
+                            y_pred = unsupervised_downstream_predictions(
+                                model=model, solution=solution,  X_train=features, Y_train=labels, X_test=X_test, **perf_eval_kwargs)
+                            y_pred = None, None, y_pred
                     else:
-                        y_pred = model.predict(solution, X_test)
-
-                    performance = perf_eval_fn(y_pred, model=model, **perf_eval_kwargs)
-
+                        # Batch the prediction if specified
+                        if "eval_batch_size" in perf_eval_kwargs:
+                            y_pred = batch_predictions(
+                                model=model,
+                                solution=solution,
+                                X_test=X_test,
+                                **perf_eval_kwargs,
+                            )
+                        else:
+                            y_pred = model.predict(solution, X_test)
+                    if type(y_pred) != list:
+                        performance  = [fn(y_pred, model=model, **perf_eval_kwargs) for fn in perf_eval_fn]
+                    else:
+                        performances = []
+                        labels = perf_eval_kwargs['y']
+                        for i in range(len(y_pred)):
+                            perf_eval_kwargs['y'] = labels[i]
+                            performance = [fn(y_pred[i], model=model, **perf_eval_kwargs) for fn in perf_eval_fn]
+                            performances.append(performance)
+                        performance = performances
+                        perf_eval_kwargs['y'] = labels
                 if regime == "reinforcement_learning":
                     model = copy.deepcopy(SA.model)
                     model.policy.set_new_params(solution)
@@ -680,7 +1013,7 @@ class SeldonianExperiment(Experiment):
                 if regime == "reinforcement_learning":
                     constraint_eval_kwargs["episodes_for_eval"] = episodes_for_eval
 
-                failed = self.evaluate_constraint_functions(
+                failed, g = self.evaluate_constraint_functions(
                     solution=solution,
                     constraint_eval_fns=constraint_eval_fns,
                     constraint_eval_kwargs=constraint_eval_kwargs,
@@ -695,16 +1028,33 @@ class SeldonianExperiment(Experiment):
             else:
                 if verbose:
                     print("Failed safety test ")
-                    performance = np.nan
-
+                    if type(labels) == list:
+                        performance = []
+                        for i in range(len(labels)):
+                            performance.append([np.nan] * len(perf_eval_fn))
+                    else:
+                        performance = [np.nan] * len(perf_eval_fn)
         else:
             if verbose:
                 print("NSF")
-            performance = np.nan
+            if type(labels) == list:
+                performance = []
+                for i in range(len(labels)):
+                    performance.append([np.nan] * len(perf_eval_fn))
+            else:
+                performance = [np.nan] * len(perf_eval_fn)
+        
+        for parse_tree in spec_for_experiment.parse_trees:
+            parse_tree.reset_base_node_dict(reset_data=True)
         # Write out file for this data_frac,trial_i combo
-        data = [data_frac, trial_i, performance, passed_safety, failed]
-        colnames = ["data_frac", "trial_i", "performance", "passed_safety", "failed"]
-        self.write_trial_result(data, colnames, trial_dir, verbose=kwargs["verbose"])
+        colnames = ["data_frac", "trial_i", *[fn.__name__ for fn in perf_eval_fn], "passed_safety", "g", "failed"]
+        if type(performance) == list and type(performance[0]) == list :
+            for i in range(len(performance)):
+                data = [data_frac, trial_i, *(performance[i]), passed_safety, g, failed]
+                self.write_trial_result(data, colnames, trial_dir, downstream_i=i, verbose=kwargs["verbose"])
+        else:
+                data = [data_frac, trial_i, *performance, passed_safety, g, failed]
+                self.write_trial_result(data, colnames, trial_dir, verbose=kwargs["verbose"])
         return
 
     def evaluate_constraint_functions(
@@ -762,7 +1112,8 @@ class SeldonianExperiment(Experiment):
 
             for parse_tree in spec_for_experiment.parse_trees:
                 parse_tree.reset_base_node_dict(reset_data=True)
-                parse_tree.evaluate_constraint(**constraint_eval_kwargs)
+                parse_tree.evaluate_constraint(batch_size_safety=spec_for_experiment.batch_size_safety,
+                                               **constraint_eval_kwargs)
 
                 g = parse_tree.root.value
                 if g > 0 or np.isnan(g):
@@ -774,7 +1125,7 @@ class SeldonianExperiment(Experiment):
                 g = eval_fn(solution)
                 if g > 0 or np.isnan(g):
                     failed = True
-        return failed
+        return failed, g
 
 
 class FairlearnExperiment(Experiment):

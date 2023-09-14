@@ -26,6 +26,7 @@ class BaseExample:
         plot_savename=None,
         plot_fontsize=12,
         legend_fontsize=8,
+        batch_epoch_dict={}
     ):
         """Run the experiment for this example.
         Runs any baseline models included in baselines
@@ -45,6 +46,7 @@ class BaseExample:
             plot_generator = SupervisedPlotGenerator(
                 spec=self.spec,
                 n_trials=n_trials,
+                batch_epoch_dict=batch_epoch_dict,
                 data_fracs=data_fracs,
                 n_workers=n_workers,
                 datagen_method=datagen_method,
