@@ -23,8 +23,8 @@ def vfae_example(
     spec_rootdir,
     results_base_dir,
     constraints = [],
-    epsilons=[1.86],# 0.01, , 0.02],
-    n_trials=1,
+    epsilons=[1.18],# 0.01, , 0.02],
+    n_trials=10,
     data_fracs=np.logspace(-3,0,5),
     baselines = [],
     performance_metric="auc",
@@ -33,7 +33,7 @@ def vfae_example(
     validation=False,
     device_id=0
 ):  
-    data_fracs = [1]#, 0.65, 0.40, 0.25, 0.15, 0.1]#[0.1,0.15,0.25,0.40,0.65,1]#[1, 0.65, 0.40, 0.25, 0.15, 0.1]#[0.5] #  0.1,0.15,0.25,0.40,0.65,1 [0.01, 0.025, , 0.15, 0.5, 1]  # 0.01, 0.025, 0.06, 0.15, 0.5, #0.001,0.01,0.05,0.1,0.33,0.66,1
+    data_fracs = [1,0.65, 0.40, 0.25, 0.15,0.1]#,  0.1]#[0.1,0.15,0.25,0.40,0.65,1]#[1, 0.65, 0.40, 0.25, 0.15, 0.1]#[0.5] #  0.1,0.15,0.25,0.40,0.65,1 [0.01, 0.025, , 0.15, 0.5, 1]  # 0.01, 0.025, 0.06, 0.15, 0.5, #0.001,0.01,0.05,0.1,0.33,0.66,1
     # for baseline
     # epsilon 0.4. MI 1.
     
@@ -150,10 +150,10 @@ def vfae_example(
         #     1.0: [237*2,60], #100 (1e-4), #50 (1e-3)
         #     }
 
-        alpha_l = [1e-5]#[1e-4, 1e-3] #[1e-4, 1e-5]# [1e-4, 1e-5] #[1e-3, 1e-4]
+        alpha_l = [1e-4]#[1e-4, 1e-3] #[1e-4, 1e-5]# [1e-4, 1e-5] #[1e-3, 1e-4]
         alpha_lambda_l = [1e-3]#[1e-3]#[1e-3,1e-4]#[1e-3, 1e-4] #[1e-2] #[1e-3, 1e-4]
-        lambda_init_l = [1.0, 0.1, 0.5]#[1.0]#[0.05,0.1,0.2]#[.01, 0.1, 0.5, 1.0]#[1e-2]#[1e-1, 1e-2]#[0.1, 0.15,0.25,0.40,0.65, 1]
-        epochs_l = [90]#30]#[60,90]#   , 90]#[150]#, 120, 150]#[175]# [200, 250]#, 100, 125, 150]#50, 75] #, 100#, 125, 150]
+        lambda_init_l = [.1]#[1.0]#[0.05,0.1,0.2]#[.01, 0.1, 0.5, 1.0]#[1e-2]#[1e-1, 1e-2]#[0.1, 0.15,0.25,0.40,0.65, 1]
+        epochs_l = [30]#30]#[60,90]#   , 90]#[150]#, 120, 150]#[175]# [200, 250]#, 100, 125, 150]#50, 75] #, 100#, 125, 150]
         delta_l = [0.7]#[0.5,0.7,0.9]#, 0.7, 0.9]
         #delta_dp,mi,auc,epsilon,lagrange,lr,epochs,lrl
         #0.078751758740609,2.1635162830352783,0.6380527917052579,10.0,1.0,0.001,10.0,0.0001
@@ -168,11 +168,11 @@ def vfae_example(
                             spec.optimization_hyperparams["alpha_lamb"] = alpha_lambda
                             spec.parse_trees[0].deltas = [delta] 
                             batch_epoch_dict = {
-                                0.1:[237*2,epochs],
-                                0.15: [237*2,epochs],
-                                0.25:[237*2,epochs],
-                                0.40:[237*2,epochs],
-                                0.65:[237*2,epochs],
+                                0.1:[237*2,int(epochs/0.1)],
+                                0.15: [237*2,int(epochs/0.15)],
+                                0.25:[237*2,int(epochs/0.25)],
+                                0.40:[237*2,int(epochs/0.4)],
+                                0.65:[237*2,int(epochs/0.65)],
                                 1.0: [237*2,epochs],
                             }
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     device_id = int(args.device)
 
     # if include_baselines:
-    baselines = ["cnn_controllable_vfae"] #"cnn_controllable_vfae","cnn_icvae" "cnn_lmifr_all"
+    baselines = ["cnn_lmifr_all"] #"cnn_controllable_vfae","cnn_icvae" "cnn_lmifr_all"
     # else:
     #     baselines = []
 
@@ -309,7 +309,7 @@ if __name__ == "__main__":
 
     results_base_dir = f"./SeldonianExperimentResults"
     vfae_example(
-        spec_rootdir="./SeldonianExperimentSpecs/vfae/spec",
+        spec_rootdir="../SeldonianExperimentSpecs/vfae/spec",
         results_base_dir=results_base_dir,
         # constraints = [constraint],
         # epsilons=[epsilon],

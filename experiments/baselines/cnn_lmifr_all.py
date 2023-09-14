@@ -133,100 +133,100 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
             f"Running gradient descent with batch_size: {batch_size}, num_epochs={num_epochs}"
         )
 
-        epsilon_elbo_l = [0.1, 0.5, 1, 5, 10]#[0.1, 0.5, 1, 5, 10]
-        lagrangian_elbo_l = [0.01, 0.1, 0.2, 0.5, 1]#np.logspace(-1,0,5)
-        lr_l = [1e-5, 1e-4, 1e-3]#[1e-3,1e-4]
-        num_epochs_l = [30, 60, 90]
-        epsilon_adv_l = []
+        epsilon_elbo_l = [0.5, 1, 5, 10]#[0.1, 0.5, 1, 5, 10]
+        lagrangian_elbo_l = [0.1, 0.5, 1]#np.logspace(-1,0,5)
+        lr_l = [1e-5, 1e-4]#[1e-3,1e-4]
+        num_epochs_l = [30, 60, 90, 150, 200]
+        epsilon_adv_l = [1.0]
         adv_rounds = [1, 5, 10]
-        lrl_l = [1e-5, 1e-4, 1e-3]
-        lrd_l = [1e-5, 1e-4, 1e-3]
+        lrl_l = [1e-4, 1e-3]
+        # lrd_l = [1e-4, 1e-3]
         for lr in lr_l:
             for lrl in lrl_l:
-                for lrd in lrd_l:
-                    for epsilon_elbo in epsilon_elbo_l:
-                        for lagrangian_elbo in lagrangian_elbo_l:
-                            for epsilon_adv in epsilon_adv_l:
-                                for num_epochs in num_epochs_l:
-                                    itot = 0
-                                    self.optimizer = torch.optim.Adam(self.vfae.parameters(), lr=lr)
-                                    self.optimizer_d = torch.optim.Adam(self.discriminator.parameters(), lr=lrd)
+                # for lrd in lrd_l:
+                for epsilon_elbo in epsilon_elbo_l:
+                    for lagrangian_elbo in lagrangian_elbo_l:
+                        for epsilon_adv in epsilon_adv_l:
+                            for num_epochs in num_epochs_l:
+                                itot = 0
+                                self.optimizer = torch.optim.Adam(self.vfae.parameters(), lr=lr)
+                                self.optimizer_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr)
 
-                                    self.lagrangian = torch.tensor(self.lambda_init, requires_grad=True, dtype=torch.float64)
-                                    self.lagrangian_elbo = torch.tensor(self.lambda_init, requires_grad=True, dtype=torch.float64)
-                                    self.vfae.set_lagrangian(self.lagrangian, self.lagrangian_elbo)
-                                    self.vfae.epsilon_1 = epsilon_elbo
-                                    self.vfae.epsilon_2 = epsilon_adv
-                                    self.n_adv_rounds = adv_rounds
-                                    for epoch in range(num_epochs):
-                                        for i, (features, sensitive, semi_labels, labels) in enumerate(trainloader):
-                                            # Load images
-                                            self.discriminator.eval()
-                                            features = features.float().to(self.device)
-                                            sensitive = sensitive.float().to(self.device)
-                                            semi_labels = semi_labels.float().to(self.device)
-                                            # labels = labels.to(self.device)
-
-                                            # Clear gradients w.r.t. parameters
-                                            self.optimizer.zero_grad()
-                                            self.vfae.train()
-                                            # Forward pass to get output/logits
-                                            vae_loss, mi_sz, y_prob = self.pytorch_model(features, sensitive, semi_labels, self.discriminator)
-
-                                            # Getting gradients w.r.t. parameters
-                                            if itot % self.n_adv_rounds == 0:
-                                                if True:
-                                                    vae_loss.backward()
-
-                                                    # Updating parameters
-                                                    self.optimizer.step()
-                                                    # self.lagrangian.grad.zero_()
-                                                    # self.lagrangian_elbo.grad.zero_()
-                                                    # self.optimizer.zero_grad()
-                                                    # self.vfae.eval()
-                                                    # vae_loss, mi_sz, y_prob = self.pytorch_model(features, sensitive, semi_labels, self.discriminator)
-                                                    # vae_loss.backward()
-
-                                                    self.lagrangian.data.add_(self.lrl * self.lagrangian.grad.data)
-                                                    self.lagrangian.grad.zero_()
-                                                    self.lagrangian_elbo.data.add_(self.lrl * self.lagrangian_elbo.grad.data)
-                                                    self.lagrangian_elbo.grad.zero_()
-                                                
-                                            # Update the adversary
-                                            self.update_adversary(features, sensitive, semi_labels)
-                                            if i % 10 == 0:
-                                                it = f"{i+1}/{len(trainloader)}"
-                                                print(f"Epoch, it, itot, loss, mi: {epoch},{it},{itot},{vae_loss}, {mi_sz.mean()}")
-                                            itot += 1
-                                    if self.use_validation:
+                                self.lagrangian = torch.tensor(self.lambda_init, requires_grad=True, dtype=torch.float64)
+                                self.lagrangian_elbo = torch.tensor(self.lambda_init, requires_grad=True, dtype=torch.float64)
+                                self.vfae.set_lagrangian(self.lagrangian, self.lagrangian_elbo)
+                                self.vfae.epsilon_1 = epsilon_elbo
+                                self.vfae.epsilon_2 = epsilon_adv
+                                self.n_adv_rounds = adv_rounds
+                                for epoch in range(num_epochs):
+                                    for i, (features, sensitive, semi_labels, labels) in enumerate(trainloader):
+                                        # Load images
                                         self.discriminator.eval()
-                                        self.vfae.eval()
-                                        self.pytorch_model.eval()
-                                        kwargs = {
-                                            'downstream_lr'     : 1e-4,
-                                            'downstream_bs'     : 237,
-                                            'downstream_epochs' : 5,
-                                            'y_dim'             : 1,
-                                            's_dim'             : self.s_dim,
-                                            'z_dim'             : self.z_dim,
-                                            'device'            : self.device,
-                                            "X"                 : [X_valid, S_valid, Y_valid],
-                                        }
+                                        features = features.float().to(self.device)
+                                        sensitive = sensitive.float().to(self.device)
+                                        semi_labels = semi_labels.float().to(self.device)
+                                        # labels = labels.to(self.device)
 
-                                        y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), X_train, Y_semi_train, X_valid, **kwargs)
-                                        x_valid_tensor = x_valid_tensor.float().to(self.device)
-                                        s_valid_tensor = s_valid_tensor.float().to(self.device)
-                                        y_valid_label = y_valid_label.float().to(self.device)
-                                        vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor, s_valid_tensor, y_valid_label, self.discriminator)
-                                        y_pred_all = vae_loss, mi_sz, y_pred
-                                        delta_DP = utils.multiclass_demographic_parity(y_pred_all, None, **kwargs)
-                                        auc = roc_auc_score(Y_valid, y_pred)
-                                        df = pd.read_csv('/media/yuhongluo/SeldonianExperimentResults/cnn_lmifr.csv')
-                                        row = {'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(), 'lr': lr, 'epsilon_elbo':epsilon_elbo, 'epsilon_adv':epsilon_adv,'lagrange':lagrangian_elbo, 'epochs':num_epochs, 'adv_rounds': adv_rounds}
-                                        print(row)
-                                        df = df.append(row, ignore_index=True)
-                                        df.to_csv('/media/yuhongluo/SeldonianExperimentResults/cnn_lmifr.csv', index=False)
-                    
+                                        # Clear gradients w.r.t. parameters
+                                        self.optimizer.zero_grad()
+                                        self.vfae.train()
+                                        # Forward pass to get output/logits
+                                        vae_loss, mi_sz, y_prob = self.pytorch_model(features, sensitive, semi_labels, self.discriminator)
+
+                                        # Getting gradients w.r.t. parameters
+                                        if itot % self.n_adv_rounds == 0:
+                                            if True:
+                                                vae_loss.backward()
+
+                                                # Updating parameters
+                                                self.optimizer.step()
+                                                # self.lagrangian.grad.zero_()
+                                                # self.lagrangian_elbo.grad.zero_()
+                                                # self.optimizer.zero_grad()
+                                                # self.vfae.eval()
+                                                # vae_loss, mi_sz, y_prob = self.pytorch_model(features, sensitive, semi_labels, self.discriminator)
+                                                # vae_loss.backward()
+
+                                                self.lagrangian.data.add_(self.lrl * self.lagrangian.grad.data)
+                                                self.lagrangian.grad.zero_()
+                                                self.lagrangian_elbo.data.add_(self.lrl * self.lagrangian_elbo.grad.data)
+                                                self.lagrangian_elbo.grad.zero_()
+                                            
+                                        # Update the adversary
+                                        self.update_adversary(features, sensitive, semi_labels)
+                                        if i % 10 == 0:
+                                            it = f"{i+1}/{len(trainloader)}"
+                                            print(f"Epoch, it, itot, loss, mi: {epoch},{it},{itot},{vae_loss}, {mi_sz.mean()}")
+                                        itot += 1
+                                if self.use_validation:
+                                    self.discriminator.eval()
+                                    self.vfae.eval()
+                                    self.pytorch_model.eval()
+                                    kwargs = {
+                                        'downstream_lr'     : 1e-4,
+                                        'downstream_bs'     : 237,
+                                        'downstream_epochs' : 5,
+                                        'y_dim'             : 1,
+                                        's_dim'             : self.s_dim,
+                                        'z_dim'             : self.z_dim,
+                                        'device'            : self.device,
+                                        "X"                 : [X_valid, S_valid, Y_valid],
+                                    }
+
+                                    y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), X_train, Y_semi_train, X_valid, **kwargs)
+                                    x_valid_tensor = x_valid_tensor.float().to(self.device)
+                                    s_valid_tensor = s_valid_tensor.float().to(self.device)
+                                    y_valid_label = y_valid_label.float().to(self.device)
+                                    vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor, s_valid_tensor, y_valid_label, self.discriminator)
+                                    y_pred_all = vae_loss, mi_sz, y_pred
+                                    delta_DP = utils.multiclass_demographic_parity(y_pred_all, None, **kwargs)
+                                    auc = roc_auc_score(Y_valid, y_pred)
+                                    df = pd.read_csv('/media/yuhongluo/SeldonianExperimentResults/cnn_lmifr.csv')
+                                    row = {'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(), 'lr': lr, 'epsilon_elbo':epsilon_elbo, 'epsilon_adv':epsilon_adv,'lagrange':lagrangian_elbo, 'epochs':num_epochs, 'adv_rounds': adv_rounds}
+                                    print(row)
+                                    df = df.append(row, ignore_index=True)
+                                    df.to_csv('/media/yuhongluo/SeldonianExperimentResults/cnn_lmifr.csv', index=False)
+                
             # print(self.lagrangian)
 
     def update_adversary(self, features, sensitive, semi_labels):

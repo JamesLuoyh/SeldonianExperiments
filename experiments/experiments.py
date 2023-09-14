@@ -812,22 +812,22 @@ class SeldonianExperiment(Experiment):
                     labels = labels[:n_points]
                 sensitive_attrs = sensitive_attrs[:n_points]
 
-                # resample n data ponts. For representation learning use case
-                ix_resamp = np.random.choice(
-                    range(n_points), num_datapoints_tot, replace=True
-                )
-                if type(features) == list:
-                    features = [x[ix_resamp] for x in features]
-                else:
-                    features = features[ix_resamp]
-                if type(labels) == list:
-                    labels = [x[ix_resamp] for x in labels]
-                else:
-                    labels = labels[ix_resamp]
-                sensitive_attrs = sensitive_attrs[ix_resamp]
+                # # resample n data ponts. For representation learning use case
+                # ix_resamp = np.random.choice(
+                #     range(n_points), num_datapoints_tot, replace=True
+                # )
+                # if type(features) == list:
+                #     features = [x[ix_resamp] for x in features]
+                # else:
+                #     features = features[ix_resamp]
+                # if type(labels) == list:
+                #     labels = [x[ix_resamp] for x in labels]
+                # else:
+                #     labels = labels[ix_resamp]
+                # sensitive_attrs = sensitive_attrs[ix_resamp]
 
-                print(sensitive_attrs.shape)
-                n_points = num_datapoints_tot
+                # print(sensitive_attrs.shape)
+                # n_points = num_datapoints_tot
             else:
                 raise NotImplementedError(
                     f"Eval method {datagen_method} "
