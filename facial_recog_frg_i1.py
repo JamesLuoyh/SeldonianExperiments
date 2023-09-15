@@ -52,7 +52,7 @@ dataset = SupervisedDataSet(
 regime='supervised_learning'
 # epsilon = 0.4
 # deltas = [0.1]
-epsilon = 1.18
+epsilon = 0.05#1.18
 deltas = [0.7]
 
 constraint_strs = [f'VAE <= {epsilon}']

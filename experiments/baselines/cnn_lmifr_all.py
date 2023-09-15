@@ -97,7 +97,7 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
     #     y_pred = softmax(y_pred_super, axis=-1)[:, 1]
     #     return y_pred
 
-    def train(self, X_train, Y_train, batch_size, num_epochs):
+    def train(self, X_train, Y_train, batch_size, num_epochs, data_frac):
         print("Training model...")
         loss_list = []
         accuracy_list = []
@@ -133,13 +133,35 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
             f"Running gradient descent with batch_size: {batch_size}, num_epochs={num_epochs}"
         )
 
-        epsilon_elbo_l = [10]#, 1, 5, 10]#[0.1, 0.5, 1, 5, 10]
-        lagrangian_elbo_l = [0.1, 0.5, 1]#np.logspace(-1,0,5)
-        lr_l = [1e-4]#, 1e-4]#[1e-3,1e-4]
-        num_epochs_l = [1,30, 60, 90, 150, 200]
+        # Data size 1.0 num_epochs_l = [3*num_epochs] epsilon_elbo_l = [5.0] lagrangian_elbo_l = [1.0] lr_l = [1e-4] epsilon_adv_l = [1.0] adv_rounds_l = [10] lrl_l = [1e-3]
+        # Data size 0.4 
+        num_epochs_l = [3*num_epochs]
+        epsilon_elbo_l = [5.0]
+        lagrangian_elbo_l = [1.0]
+        lr_l = [1e-4]
         epsilon_adv_l = [1.0]
-        adv_rounds_l = [1, 5, 10]
-        lrl_l = [1e-4, 1e-3]
+        adv_rounds_l = [10]
+        lrl_l = [1e-3]
+        #data 0.4
+        # num_epochs_l = [int(90 / 30) * num_epochs]
+        # epsilon_elbo_l = [5.0]#[10]#, 1, 5, 10]#[0.1, 0.5, 1, 5, 10]
+        # lagrangian_elbo_l = [1.0]#0.1, 0.5, 1]#np.logspace(-1,0,5)
+        # lr_l = [1e-5]#, 1e-4]#[1e-3,1e-4]
+        # # num_epochs_l = [1,30, 60, 90, 150, 200]
+        # epsilon_adv_l = [1.0]
+        # adv_rounds_l = [10]#, 5, 10]
+        # lrl_l = [1e-3]
+        
+        
+        # data 0.1, 0.15
+        # num_epochs_l = [int(200 / 30) * num_epochs]
+        # epsilon_elbo_l = [1.0]#[10]#, 1, 5, 10]#[0.1, 0.5, 1, 5, 10]
+        # lagrangian_elbo_l = [.5]#0.1, 0.5, 1]#np.logspace(-1,0,5)
+        # lr_l = [1e-5]#, 1e-4]#[1e-3,1e-4]
+        # # num_epochs_l = [1,30, 60, 90, 150, 200]
+        # epsilon_adv_l = [1.0]
+        # adv_rounds_l = [5]#, 5, 10]
+        # lrl_l = [1e-3]
         # lrd_l = [1e-4, 1e-3]
         for lr in lr_l:
             for lrl in lrl_l:
@@ -222,11 +244,11 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
                                         y_pred_all = vae_loss, mi_sz, y_pred
                                         delta_DP = utils.multiclass_demographic_parity(y_pred_all, None, **kwargs)
                                         auc = roc_auc_score(Y_valid, y_pred)
-                                        df = pd.read_csv('./SeldonianExperimentResults/cnn_lmifr.csv')
-                                        row = {'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(), 'lr': lr, 'lrl':lrl, 'epsilon_elbo':epsilon_elbo, 'epsilon_adv':epsilon_adv,'lagrange':lagrangian_elbo, 'epochs':num_epochs, 'adv_rounds': adv_rounds}
+                                        df = pd.read_csv('./SeldonianExperimentResults/lmifr_testing.csv')
+                                        row = {'data_frac':data_frac, 'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(), 'lr': lr, 'lrl':lrl, 'epsilon_elbo':epsilon_elbo, 'epsilon_adv':epsilon_adv,'lagrange':lagrangian_elbo, 'epochs':num_epochs, 'adv_rounds': adv_rounds}
                                         print(row)
                                         df = df.append(row, ignore_index=True)
-                                        df.to_csv('./SeldonianExperimentResults/cnn_lmifr.csv', index=False)
+                                        df.to_csv('./SeldonianExperimentResults/lmifr_testing.csv', index=False)
                 
             # print(self.lagrangian)
 

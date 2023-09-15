@@ -406,7 +406,7 @@ class BaselineExperiment(Experiment):
 
             batch_size, n_epochs = batch_epoch_dict[data_frac]
             baseline_model.train(
-                features, labels, batch_size=batch_size, num_epochs=n_epochs
+                features, labels, batch_size=batch_size, num_epochs=n_epochs,data_frac=data_frac
             )
             perf_eval_kwargs['eval_batch_size'] = len(X_test_baseline)
             solution = baseline_model.get_model_params()
@@ -439,7 +439,7 @@ class BaselineExperiment(Experiment):
             baseline_model.set_pu(pu)
             batch_size, n_epochs = batch_epoch_dict[data_frac]
             baseline_model.train(
-                features, labels, batch_size=batch_size, num_epochs=n_epochs
+                features, labels, batch_size=batch_size, num_epochs=n_epochs,data_frac=data_frac
             )
             perf_eval_kwargs['eval_batch_size'] = len(X_test_baseline)
             solution = baseline_model.get_model_params()
@@ -465,7 +465,7 @@ class BaselineExperiment(Experiment):
 
             batch_size, n_epochs = batch_epoch_dict[data_frac]
             baseline_model.train(
-                features, labels, batch_size=batch_size, num_epochs=n_epochs
+                features, labels, batch_size=batch_size, num_epochs=n_epochs,data_frac=data_frac
             )
             perf_eval_kwargs['eval_batch_size'] = 500
             solution = baseline_model.get_model_params()
@@ -514,7 +514,7 @@ class BaselineExperiment(Experiment):
 
             batch_size, n_epochs = batch_epoch_dict[data_frac]
             baseline_model.train(
-                features, labels, batch_size=batch_size, num_epochs=n_epochs
+                features, labels, batch_size=batch_size, num_epochs=n_epochs,data_frac=data_frac
             )
             perf_eval_kwargs['eval_batch_size'] = constraint_eval_kwargs["eval_batch_size"]
             solution = baseline_model.get_model_params()
@@ -548,7 +548,7 @@ class BaselineExperiment(Experiment):
             baseline_model.set_pu(pu)
             batch_size, n_epochs = batch_epoch_dict[data_frac]
             baseline_model.train(
-                features, labels, batch_size=batch_size, num_epochs=n_epochs
+                features, labels, batch_size=batch_size, num_epochs=n_epochs,data_frac=data_frac
             )
             # perf_eval_kwargs['eval_batch_size'] = len(X_test_baseline)
             perf_eval_kwargs['eval_batch_size'] = spec.optimization_hyperparams["downstream_bs"]

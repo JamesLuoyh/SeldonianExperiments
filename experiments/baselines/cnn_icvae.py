@@ -91,7 +91,7 @@ class PytorchCNNICVAE(SupervisedPytorchBaseModel):
     #     y_pred = softmax(y_pred_super, axis=-1)[:, 1]
     #     return y_pred
 
-    def train(self, X_train, Y_train, batch_size, num_epochs):
+    def train(self, X_train, Y_train, batch_size, num_epochs, data_frac):
         print("Training model...")
         loss_list = []
         accuracy_list = []
@@ -127,9 +127,9 @@ class PytorchCNNICVAE(SupervisedPytorchBaseModel):
             f"Running gradient descent with batch_size: {batch_size}, num_epochs={num_epochs}"
         )
         itot = 0
-        lr_l = [1e-5, 1e-4, 1e-3]#[1e-3,1e-4]
-        num_epochs_l = [1,30, 60, 90]
-        lam_l = [0.1, 1, 10]
+        lr_l = [1e-4, 1e-3]#[1e-3,1e-4]1e-5, 
+        num_epochs_l = [30, 60, 90]
+        lam_l = [0.1,1,10]#, 1, 10]
         for lr in lr_l:
             for num_epochs in num_epochs_l:
                  for lam in lam_l:
@@ -185,11 +185,11 @@ class PytorchCNNICVAE(SupervisedPytorchBaseModel):
                         y_pred_all = vae_loss, mi_sz, y_pred
                         delta_DP = utils.multiclass_demographic_parity(y_pred_all, None, **kwargs)
                         auc = roc_auc_score(Y_valid, y_pred)
-                        df = pd.read_csv('/media/yuhongluo/SeldonianExperimentResults/cnn_icvae.csv')
-                        row = {'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(),'lam': lam, 'lr': lr, 'epochs':num_epochs}
+                        df = pd.read_csv('/media/yuhongluo/SeldonianExperimentResults/cnn_icvae_test.csv')
+                        row = {'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(),'lam': lam, 'lr': lr, 'epochs':num_epochs, 'data_frac':data_frac}
                         print(row)
                         df = df.append(row, ignore_index=True)
-                        df.to_csv('/media/yuhongluo/SeldonianExperimentResults/cnn_icvae.csv', index=False)
+                        df.to_csv('/media/yuhongluo/SeldonianExperimentResults/cnn_icvae_test.csv', index=False)
                     
 
     def get_representations(self, X):
