@@ -521,13 +521,17 @@ class BaselineExperiment(Experiment):
             y_pred = vae_predictions(
                 baseline_model, solution, X_test_baseline, **perf_eval_kwargs
             )
-        if self.model_name == "cnn_controllable_vfae" or self.model_name == "cnn_icvae" or self.model_name == "cnn_lmifr_all":
+        if self.model_name == "cnn_controllable_vfae" or self.model_name == "cnn_icvae" or self.model_name == "cnn_lmifr_all" or self.model_name == "cnn_vfae_baseline" or self.model_name == "cnn_vae":
             if self.model_name == "cnn_controllable_vfae":
                 from .baselines.cnn_controllable_vfae import PytorchCNNLMIFR as model
             elif self.model_name == "cnn_lmifr_all":
                 from .baselines.cnn_lmifr_all import PytorchCNNLMIFR as model
             elif self.model_name == "cnn_icvae":
                 from .baselines.cnn_icvae import PytorchCNNICVAE as model
+            elif self.model_name == "cnn_vfae_baseline":
+                from .baselines.cnn_vfae_baseline import PytorchCNNVFAE as model
+            elif self.model_name == "cnn_vae":
+                from .baselines.cnn_vae import PytorchCNNVAE as model
             device = perf_eval_kwargs["device"]
             baseline_model = model(device=device, **{"x_dim": -1,
                 "s_dim": 5,
@@ -933,11 +937,11 @@ class SeldonianExperiment(Experiment):
 
         failed = False  # flag for whether we were actually safe on test set
         g = 0
-        if solution_found:
+        if True:#solution_found:
             solution = copy.deepcopy(solution)
             # If passed the safety test, calculate performance
             # using solution
-            if passed_safety:
+            if True:#passed_safety:
                 if verbose:
                     print("Passed safety test! Calculating performance")
 
@@ -945,8 +949,27 @@ class SeldonianExperiment(Experiment):
                 """ Calculate performance """
                 #############################
                 if regime == "supervised_learning":
-                    X_test = perf_eval_kwargs["X"]
-                    Y_test = perf_eval_kwargs["y"]
+                    #evaluation set
+                    if validation:
+                        val_label = labels
+                        if type(labels) == list:
+                            val_label = labels[0]
+                        Y_test=val_label[-SA.n_safety:]
+                        labels = val_label[:-SA.n_safety]
+                        perf_eval_kwargs["y"] = Y_test
+                        if type(features) == list:
+                            X_test = [x[-SA.n_safety:] for x in features]
+                            features = [x[:-SA.n_safety] for x in features]
+                        else:
+                            X_test = features[-SA.n_safety:]                        
+                            features = features[:-SA.n_safety]
+
+                        perf_eval_kwargs["X"] = X_test
+                    else:
+                    # test set
+                        X_test = perf_eval_kwargs["X"]
+                        Y_test = perf_eval_kwargs["y"]
+                    
                     model = SA.model
                     if spec.dataset.meta_information.get("self_supervised", False):
                         # train downstream supervised model

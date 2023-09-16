@@ -135,7 +135,7 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
 
         # Data size 1.0 num_epochs_l = [3*num_epochs] epsilon_elbo_l = [5.0] lagrangian_elbo_l = [1.0] lr_l = [1e-4] epsilon_adv_l = [1.0] adv_rounds_l = [10] lrl_l = [1e-3]
         # Data size 0.4 
-        num_epochs_l = [3*num_epochs]
+        num_epochs_l = [int(90/data_frac)]
         epsilon_elbo_l = [5.0]
         lagrangian_elbo_l = [1.0]
         lr_l = [1e-4]
@@ -143,7 +143,7 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
         adv_rounds_l = [10]
         lrl_l = [1e-3]
         #data 0.4
-        # num_epochs_l = [int(90 / 30) * num_epochs]
+        # num_epochs_l = [int(90/data_frac)]
         # epsilon_elbo_l = [5.0]#[10]#, 1, 5, 10]#[0.1, 0.5, 1, 5, 10]
         # lagrangian_elbo_l = [1.0]#0.1, 0.5, 1]#np.logspace(-1,0,5)
         # lr_l = [1e-5]#, 1e-4]#[1e-3,1e-4]
@@ -154,7 +154,7 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
         
         
         # data 0.1, 0.15
-        # num_epochs_l = [int(200 / 30) * num_epochs]
+        # num_epochs_l = [int(200/data_frac)]
         # epsilon_elbo_l = [1.0]#[10]#, 1, 5, 10]#[0.1, 0.5, 1, 5, 10]
         # lagrangian_elbo_l = [.5]#0.1, 0.5, 1]#np.logspace(-1,0,5)
         # lr_l = [1e-5]#, 1e-4]#[1e-3,1e-4]
@@ -163,6 +163,15 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
         # adv_rounds_l = [5]#, 5, 10]
         # lrl_l = [1e-3]
         # lrd_l = [1e-4, 1e-3]
+
+        num_epochs_l = [int(1000/data_frac)]#int(100/data_frac), int(10/data_frac), int(50/data_frac), int(500/data_frac), int(1000/data_frac)]
+        epsilon_elbo_l = [1]#0.1,1.0,5,10]#[10]#, 1, 5, 10]#[0.1, 0.5, 1, 5, 10]
+        lagrangian_elbo_l = [.5]#0.1, 0.5, 1]#np.logspace(-1,0,5)
+        lr_l = [1e-5]#,1e-4]#, 1e-4]#[1e-3,1e-4]
+        # num_epochs_l = [1,30, 60, 90, 150, 200]
+        epsilon_adv_l = [1.0]
+        adv_rounds_l = [5]#, 5, 10]
+        lrl_l = [1e-3]
         for lr in lr_l:
             for lrl in lrl_l:
                 # for lrd in lrd_l:
@@ -228,7 +237,7 @@ class PytorchCNNLMIFR(SupervisedPytorchBaseModel):
                                         kwargs = {
                                             'downstream_lr'     : 1e-4,
                                             'downstream_bs'     : 237,
-                                            'downstream_epochs' : 5,
+                                            'downstream_epochs' : 10,
                                             'y_dim'             : 1,
                                             's_dim'             : self.s_dim,
                                             'z_dim'             : self.z_dim,

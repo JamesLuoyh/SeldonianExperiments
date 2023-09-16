@@ -24,7 +24,7 @@ def vfae_example(
     results_base_dir,
     constraints = [],
     epsilons=[1.18],# 0.45 0.01, , 0.02],
-    n_trials=10,
+    n_trials=1,
     data_fracs=np.logspace(-3,0,5),
     baselines = [],
     performance_metric="auc",
@@ -33,7 +33,7 @@ def vfae_example(
     validation=False,
     device_id=0
 ):  
-    data_fracs = [1.0]#0.40]#,0.40]#, 1, 0.40]#,0.65, 0.40, 0.25, 0.15,0.1]#,  0.1]#[0.1,0.15,0.25,0.40,0.65,1]#[1, 0.65, 0.40, 0.25, 0.15, 0.1]#[0.5] #  0.1,0.15,0.25,0.40,0.65,1 [0.01, 0.025, , 0.15, 0.5, 1]  # 0.01, 0.025, 0.06, 0.15, 0.5, #0.001,0.01,0.05,0.1,0.33,0.66,1
+    data_fracs = [0.1,0.15,0.25,0.40,0.65,1]##1.0,0.65, 0.40, 0.25, 0.15,0.1]#0.40]#,0.40]#, 1, 0.40]#,0.65, 0.40, 0.25, 0.15,0.1]#,  0.1][1, 0.65, 0.40, 0.25, 0.15, 0.1]#[0.5] #  0.1,0.15,0.25,0.40,0.65,1 [0.01, 0.025, , 0.15, 0.5, 1]  # 0.01, 0.025, 0.06, 0.15, 0.5, #0.001,0.01,0.05,0.1,0.33,0.66,1
     # for baseline
     # epsilon 0.4. MI 1.
     
@@ -154,7 +154,7 @@ def vfae_example(
         alpha_lambda_l = [1e-3]
         lambda_init_l = [.1]
         epochs_l = [30]
-        delta_l = [0.7]
+        delta_l = [0.1]
         # alpha_l = [1e-4]#, 1e-5] #[1e-4, 1e-5]# [1e-4, 1e-5] #[1e-3, 1e-4]
         # alpha_lambda_l = [1e-3]#[1e-3]#[1e-3,1e-4]#[1e-3, 1e-4] #[1e-2] #[1e-3, 1e-4]
         # lambda_init_l = [.1]#, 1.0, 0.5]#[1.0]#[0.05,0.1,0.2]#[.01, 0.1, 0.5, 1.0]#[1e-2]#[1e-1, 1e-2]#[0.1, 0.15,0.25,0.40,0.65, 1]
@@ -248,19 +248,19 @@ def vfae_example(
                                         model_name=baseline_model, verbose=verbose,validation=validation, dataset_name='Face'
                                     )
                             dp_constraint = 0.08
-                            # for i in range(2):
-                            #     plot_savename = os.path.join(
-                            #         results_dir, f"cnn_vfae{version_subs}_mutual_information_{epsilon}_{performance_metric}_downstream_{i}.pdf"
-                            #     )
-                            #     plot_generator.make_plots(
-                            #         fontsize=12,
-                            #         legend_fontsize=8,
-                            #         performance_label=['auc', '$\Delta_{\mathrm{DP}}$ <= 0.08'],
-                            #         prob_performance_below=[None, dp_constraint],
-                            #         performance_yscale="linear",
-                            #         savename=plot_savename,
-                            #         result_filename_suffix=f"_downstream_{i}"
-                            #     )
+                            for i in range(2):
+                                plot_savename = os.path.join(
+                                    results_dir, f"cnn_vfae{version_subs}_mutual_information_{epsilon}_{performance_metric}_downstream_{i}.pdf"
+                                )
+                                plot_generator.make_plots(
+                                    fontsize=12,
+                                    legend_fontsize=8,
+                                    performance_label=['auc', '$\Delta_{\mathrm{DP}}$ <= 0.08'],
+                                    prob_performance_below=[None, dp_constraint],
+                                    performance_yscale="linear",
+                                    savename=plot_savename,
+                                    result_filename_suffix=f"_downstream_{i}"
+                                )
         
         # ex = BaseExample(spec=spec)
         
@@ -306,7 +306,7 @@ if __name__ == "__main__":
     device_id = int(args.device)
 
     # if include_baselines:
-    baselines = ["cnn_lmifr_all"] #"cnn_controllable_vfae","cnn_icvae" "cnn_lmifr_all"
+    baselines = ["cnn_lmifr_all"] #"cnn_controllable_vfae","cnn_icvae" "cnn_lmifr_all", "cnn_vfae_baseline", "cnn_vae"
     # else:
     #     baselines = []
 

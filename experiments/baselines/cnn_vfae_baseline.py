@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 import experiments.utils as utils
 
-class PytorchCNNICVAE(SupervisedPytorchBaseModel):
+class PytorchCNNVFAE(SupervisedPytorchBaseModel):
     """
     Implementation of the Variational Fair AutoEncoder. Note that the loss has to be computed separately.
     """
@@ -51,10 +51,11 @@ class PytorchCNNICVAE(SupervisedPytorchBaseModel):
         # x_dec_dim = kwargs[x_dec_dim]
         # dropout_rate = kwargs[dropout_rate]
         # lr = 1e-3
-        lam = 1
+        epsilon_1 = 0.4
+        epsilon_2 = 0.05
         # self.batch_size = 237*2
         # self.num_epochs = 50
-        self.vfae = CNNICVAE(x_dim,
+        self.vfae = CNNVFAE(x_dim,
                  s_dim,
                  y_dim,
                  z1_enc_dim,
@@ -63,15 +64,20 @@ class PytorchCNNICVAE(SupervisedPytorchBaseModel):
                  x_dec_dim,
                  z_dim,
                  dropout_rate,
-                 lam,
+                 epsilon_1,
+                 epsilon_2,
                  activation=nn.ReLU()).to(self.device)
         self.lr = 1e-3
         self.lr_d = 1e-3
         self.lr_l = 1e-2
         self.lambda_init = 1.0
+        self.n_adv_rounds = 3
         self.optimizer = torch.optim.Adam(self.vfae.parameters(), lr=self.lr)
-        self.use_validation = use_validation
+        
         self.discriminator = DecoderMLP(z_dim, z_dim, s_dim, activation).to(self.device)
+        self.optimizer_d = torch.optim.Adam(self.discriminator.parameters(), lr=self.lr_d)
+        self.adv_loss = nn.BCELoss()
+        self.use_validation = use_validation
         self.x_dim = x_dim
         self.s_dim = s_dim
         self.z_dim = z_dim
@@ -98,7 +104,9 @@ class PytorchCNNICVAE(SupervisedPytorchBaseModel):
         iter_list = []
         # batch_size = self.batch_size 
         # num_epochs = self.num_epochs 
-        X_train, S_train, Y_semi_train = X_train        
+        X_train, S_train, Y_semi_train = X_train
+        x_train_tensor = torch.from_numpy(X_train)
+        
         
         if self.use_validation:
             X_train_size = int(len(X_train) * 0.8)
@@ -126,76 +134,76 @@ class PytorchCNNICVAE(SupervisedPytorchBaseModel):
         print(
             f"Running gradient descent with batch_size: {batch_size}, num_epochs={num_epochs}"
         )
-        itot = 0
-        lr_l = [1e-4]#, 1e-3]#[1e-3,1e-4]1e-5, 
-        num_epochs_l = [int(90/data_frac)]#, 60, 90]
-        lam_l = [100]#,1,10]#, 1, 10]
+
+        beta_l = [100]#, 100, 1000]#0.1, 1.0, 10]#0.1]#, ]#1e-4, 1e-3, 1e-2, 1e-1]
+        gamma_l = [0.1]#, 1.0, 5.0, 10.0]
+        lr_l = [1e-5]#,1e-4]#, 1e-4]
+        num_epochs_l = [int(60/data_frac)]#,5,10]#10, 20, 30, 60, 90]
+        
         for lr in lr_l:
-            for num_epochs in num_epochs_l:
-                 for lam in lam_l:
-                    self.vfae.lam = lam
-                    self.optimizer = torch.optim.Adam(self.vfae.parameters(), lr=lr)
-                    for epoch in range(num_epochs):
-                        for i, (features, sensitive, semi_labels, labels) in enumerate(trainloader):
-                            # Load images
-                            self.discriminator.eval()
-                            features = features.float().to(self.device)
-                            sensitive = sensitive.float().to(self.device)
-                            semi_labels = semi_labels.float().to(self.device)
-                            # labels = labels.to(self.device)
+            for beta in beta_l:
+                for gamma in gamma_l:
+                    for num_epochs in num_epochs_l:
+                        itot = 0
+                        self.optimizer = torch.optim.Adam(self.vfae.parameters(), lr=self.lr)
+                        self.vfae.set_mmd(beta, gamma)
+                        for epoch in range(num_epochs):
+                            for i, (features, sensitive, semi_labels, labels) in enumerate(trainloader):
+                                # Load images
+                                features = features.float().to(self.device)
+                                sensitive = sensitive.float().to(self.device)
+                                semi_labels = semi_labels.float().to(self.device)
+                                # labels = labels.to(self.device)
 
-                            # Clear gradients w.r.t. parameters
-                            self.optimizer.zero_grad()
-                            self.vfae.train()
-                            # Forward pass to get output/logits
-                            vae_loss, mi_sz, y_prob = self.pytorch_model(features, sensitive, semi_labels, self.discriminator)
+                                # Clear gradients w.r.t. parameters
+                                self.optimizer.zero_grad()
+                                self.vfae.train()
+                                # Forward pass to get output/logits
+                                vae_loss, mi_sz, y_prob = self.pytorch_model(features, sensitive, semi_labels, self.discriminator)
 
-                            # Getting gradients w.r.t. parameters
-                            # if itot % self.n_adv_rounds == 0:
-                            # if True:
-                            vae_loss.backward()
+                                # Getting gradients w.r.t. parameters
+                                # if itot % self.n_adv_rounds == 0:
+                                vae_loss.backward()
 
                                 # Updating parameters
-                            self.optimizer.step()
-                            if i % 10 == 0:
-                                it = f"{i+1}/{len(trainloader)}"
-                                print(f"Epoch, it, itot, loss, mi: {epoch},{it},{itot},{vae_loss}, {mi_sz.mean()}")
-                            itot += 1
-                    
-                    if self.use_validation:
-                        self.discriminator.eval()
-                        self.vfae.eval()
-                        self.pytorch_model.eval()
-                        kwargs = {
-                            'downstream_lr'     : 1e-4,
-                            'downstream_bs'     : 237,
-                            'downstream_epochs' : 10,
-                            'y_dim'             : 1,
-                            's_dim'             : self.s_dim,
-                            'z_dim'             : self.z_dim,
-                            'device'            : self.device,
-                            "X"                 : [X_valid, S_valid, Y_valid],
-                        }
+                                self.optimizer.step()
+                                if i % 10 == 0:
+                                    it = f"{i+1}/{len(trainloader)}"
+                                    print(f"Epoch, it, itot, loss, mi: {epoch},{it},{itot},{vae_loss}, {mi_sz.mean()}")
+                                itot += 1
+                        if self.use_validation:
+                            self.discriminator.eval()
+                            self.vfae.eval()
+                            self.pytorch_model.eval()
+                            kwargs = {
+                                'downstream_lr'     : 1e-4,
+                                'downstream_bs'     : 237,
+                                'downstream_epochs' : 10,
+                                'y_dim'             : 1,
+                                's_dim'             : self.s_dim,
+                                'z_dim'             : self.z_dim,
+                                'device'            : self.device,
+                                "X"                 : [X_valid, S_valid, Y_valid],
+                            }
 
-                        y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), X_train, Y_semi_train, X_valid, **kwargs)
-                        x_valid_tensor = x_valid_tensor.float().to(self.device)
-                        s_valid_tensor = s_valid_tensor.float().to(self.device)
-                        y_valid_label = y_valid_label.float().to(self.device)
-                        vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor, s_valid_tensor, y_valid_label, self.discriminator)
-                        y_pred_all = vae_loss, mi_sz, y_pred
-                        delta_DP = utils.multiclass_demographic_parity(y_pred_all, None, **kwargs)
-                        auc = roc_auc_score(Y_valid, y_pred)
-                        df = pd.read_csv('./SeldonianExperimentResults/cnn_icvae_test.csv')
-                        row = {'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(),'lam': lam, 'lr': lr, 'epochs':num_epochs, 'data_frac':data_frac}
-                        print(row)
-                        df = df.append(row, ignore_index=True)
-                        df.to_csv('./SeldonianExperimentResults/cnn_icvae_test.csv', index=False)
-                    
+                            y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), X_train, Y_semi_train, X_valid, **kwargs)
+                            x_valid_tensor = x_valid_tensor.float().to(self.device)
+                            s_valid_tensor = s_valid_tensor.float().to(self.device)
+                            y_valid_label = y_valid_label.float().to(self.device)
+                            vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor, s_valid_tensor, y_valid_label, self.discriminator)
+                            y_pred_all = vae_loss, mi_sz, y_pred
+                            delta_DP = utils.multiclass_demographic_parity(y_pred_all, None, **kwargs)
+                            auc = roc_auc_score(Y_valid, y_pred)
+                            df = pd.read_csv('./SeldonianExperimentResults/cnn_vfae.csv')
+                            row = {'auc': auc, 'delta_dp': delta_DP, 'lr': lr, 'beta':beta, 'gamma':gamma, 'epochs':num_epochs,'data_frac':data_frac}
+                            print(row)
+                            df = df.append(row, ignore_index=True)
+                            df.to_csv('./SeldonianExperimentResults/cnn_vfae.csv', index=False)
 
     def get_representations(self, X):
         return self.vfae.get_representations(X)
 
-class CNNICVAE(nn.Module):
+class CNNVFAE(nn.Module):
     def __init__(self,
                 x_dim,
                 s_dim,
@@ -206,10 +214,10 @@ class CNNICVAE(nn.Module):
                 x_dec_dim,
                 z_dim,
                 dropout_rate,
-                lam,
+                epsilon_1,
+                epsilon_2,
                 activation=nn.ReLU()):
-        super(CNNICVAE, self).__init__()
-        self.z_dim = z_dim
+        super(CNNVFAE, self).__init__()
         self.latent_dim = z_dim
         self.x_dim = x_dim
         self.s_dim = s_dim
@@ -267,15 +275,13 @@ class CNNICVAE(nn.Module):
 
         self.decoder_y = DecoderMLPBinary(z_dim, z_dim, 1, activation)
         self.bce = nn.BCELoss()
-        self.lam = lam
+        self.epsilon_1 = epsilon_1
+        self.epsilon_2 = epsilon_2
+        # self.mmd = FastMMD(500, 1)
+        self.beta = 1
 
     def set_pu(self, pu):
         self.pu = pu
-        return
-
-    def set_lagrangian(self, lagrangian, lagrangian_elbo):
-        self.lagrangian = lagrangian
-        self.lagrangian_elbo = lagrangian_elbo
         return
 
 
@@ -313,6 +319,11 @@ class CNNICVAE(nn.Module):
         result = self.final_layer(result)
         return result
 
+
+    def set_mmd(self, beta, gamma):
+      self.beta = beta
+      self.mmd = FastMMD(500, gamma)
+
     def reparameterize(self, mu, logvar):
         """
         Reparameterization trick to sample from N(mu, var) from
@@ -333,11 +344,15 @@ class CNNICVAE(nn.Module):
         z = self.reparameterize(mu, log_var)
         z_s = torch.cat([z, s], dim=1)
 
+        s_decoded = discriminator(z)
+        p_adversarial = Categorical(probs=s_decoded)
         s = torch.argmax(s, dim=1)
+        log_p_adv = p_adversarial.log_prob(s)
+        log_p_u = self.pu.log_prob(s)
         # print("log_p_adv", log_p_adv)
         # print("log_p_u", log_p_u)
         # self.mi_sz = log_p_adv - log_p_u
-        # self.mi_sz = -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1)
+        self.mi_sz = -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1)
         # print(self.mi_sz.mean())
         x_decoded = self.decode(z_s)
         y_decoded = self.decoder_y(z)
@@ -361,13 +376,7 @@ class CNNICVAE(nn.Module):
         # will return the constraint C2 term. log(qu) - log(pu) instead of y_decoded
         self.vae_loss = self.loss_function(outputs, {'x': x, 's': s, 'y': y})
         # print(torch.softmax(y_decoded, dim=-1))
-        self.mi_sz = self.kl_conditional_and_marg(mu, log_var, self.z_dim).mean()
-        reconstruct_loss = 0.1 * F.mse_loss(x_decoded, x, reduction='sum') / len(x)
-
-        self.mi_sz += reconstruct_loss
-
-        self.vae_loss += self.lam * self.mi_sz
-        self.mi_sz = self.mi_sz.flatten()
+        
         self.pred = y_decoded # torch.softmax(y_decoded, dim=-1)[:, 1]
         self.s = s
         self.z = z
@@ -383,6 +392,7 @@ class CNNICVAE(nn.Module):
         recons = prediction['x_decoded']
         input = actual['x']
         y = actual['y']
+        s = actual['s']
         mu = prediction['z1_enc_mu']
         log_var = prediction['z1_enc_logvar']
 
@@ -394,61 +404,18 @@ class CNNICVAE(nn.Module):
         # supervised_loss = self.bce(prediction['y_decoded'], y.unsqueeze(1))
         # print(supervised_loss)
         loss = 0.1 * (recons_loss + kld_loss) / len(y)
+
+
         # loss = 0.1 * loss + 10*supervised_loss
         # loss = 0.1 * (recons_loss + kld_loss) + 10*supervised_loss
         # print("recons_loss", recons_loss)
         # print("kld_loss", kld_loss)
         # loss += (self.mi_sz.mean() - self.epsilon_2) * self.lagrangian
-        
+        z1_enc = prediction['z1_encoded']
+        z1_protected, z1_non_protected = self._separate_protected(z1_enc, s)
+        if len(z1_protected) > 0:
+            loss += self.beta * self.mmd(z1_protected, z1_non_protected)
         return loss #{'loss': loss, 'Reconstruction_Loss':recons_loss.detach(), 'KLD':-kld_loss.detach()}
-
-    @staticmethod
-    def all_pairs_gaussian_kl(mu, sigma, add_third_term=False):
-        sigma_sq = sigma.square() + 1e-8
-        sigma_sq_inv = torch.reciprocal(sigma_sq)
-
-        #dot product of all sigma_inv vectors with sigma is the same as a matrix mult of diag
-        first_term = torch.matmul(sigma_sq, sigma_sq_inv.T)
-        r = torch.matmul(mu * mu,sigma_sq_inv.T)
-        r2 = mu * mu * sigma_sq_inv 
-        r2 = torch.sum(r2,1)
-        #squared distance
-        #(mu[i] - mu[j])\sigma_inv(mu[i] - mu[j]) = r[i] - 2*mu[i]*mu[j] + r[j]
-        #uses broadcasting
-        second_term = 2*torch.matmul(mu, (mu*sigma_sq_inv).T)
-        second_term = r - second_term + (r2.unsqueeze(1)).T
-        # log det A = tr log A
-        # log \frac{ det \Sigma_1 }{ det \Sigma_0 } =
-        #   \tr\log \Sigma_1 - \tr\log \Sigma_0 
-        # for each sample, we have B comparisons to B other samples...
-        #   so this cancels out
-
-        if(add_third_term):
-            r = torch.sum(torch.log(sigma_sq),1)
-            r = torch.reshape(r,[-1,1])
-            third_term = r - r.T
-        else:
-            third_term = 0
-
-        #- tf.reduce_sum(tf.log(1e-8 + tf.square(sigma)))\
-        # the dim_z ** 3 term comes fro
-        #   -the k in the original expression
-        #   -this happening k times in for each sample
-        #   -this happening for k samples
-        #return 0.5 * ( first_term + second_term + third_term - dim_z )
-        return 0.5 * ( first_term + second_term + third_term )
-
-    #
-    # kl_conditional_and_marg
-    #   \sum_{x'} KL[ q(z|x) \| q(z|x') ] + (B-1) H[q(z|x)]
-    #
-
-    #def kl_conditional_and_marg(args):
-    def kl_conditional_and_marg(self, z_mean, z_log_sigma_sq, dim_z):
-        z_sigma = ( 0.5 * z_log_sigma_sq ).exp()
-        all_pairs_GKL = self.all_pairs_gaussian_kl(z_mean, z_sigma, True) - 0.5*dim_z
-        return torch.mean(all_pairs_GKL, dim=1)
-
 
     def sample(self,
                num_samples,
@@ -476,6 +443,23 @@ class CNNICVAE(nn.Module):
         """
 
         return self.forward(x)[0]
+
+    @staticmethod
+    def _separate_protected(batch, s):
+        """separate batch based on labels indicating protected and non protected .
+
+        :param batch: values to select from based on s.
+        :param s: tensor of labels with s=1 meaning protected and s=0 non protected.
+        :return:
+            - protected - items from batch with protected label
+            - non_protected - items from batch with non protected label
+        """
+        idx_protected = (s == 1).nonzero()[:, 0]
+        idx_non_protected = (s == 0).nonzero()[:, 0]
+        protected = batch[idx_protected]
+        non_protected = batch[idx_non_protected]
+
+        return protected, non_protected
 
 class DecoderMLP(nn.Module):
     """
@@ -510,3 +494,34 @@ class DecoderMLPBinary(nn.Module):
         x = self.activation(self.lin_encoder(inputs))
         x = self.activation(self.lin_encoder_2(x))
         return self.sigmoid(self.lin_out(x))
+
+
+
+class FastMMD(nn.Module):
+    """ Fast Maximum Mean Discrepancy approximated using the random kitchen sinks method.
+    """
+
+    def __init__(self, out_features, gamma):
+        super().__init__()
+        self.gamma = gamma
+        self.out_features = out_features
+
+    def forward(self, a, b):
+        in_features = a.shape[-1]
+
+        # W sampled from normal
+        w_rand = torch.randn((in_features, self.out_features), device=a.device)
+        # b sampled from uniform
+        b_rand = torch.zeros((self.out_features,), device=a.device).uniform_(0, 2 * pi)
+
+        phi_a = self._phi(a, w_rand, b_rand).mean(dim=0)
+        phi_b = self._phi(b, w_rand, b_rand).mean(dim=0)
+        mmd = torch.norm(phi_a - phi_b, 2)
+
+        return mmd
+
+    def _phi(self, x, w, b):
+        scale_a = sqrt(2 / self.out_features)
+        scale_b = sqrt(2 / self.gamma)
+        out = scale_a * (scale_b * (x @ w + b)).cos()
+        return out
