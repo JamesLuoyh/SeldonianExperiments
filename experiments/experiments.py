@@ -937,11 +937,11 @@ class SeldonianExperiment(Experiment):
 
         failed = False  # flag for whether we were actually safe on test set
         g = 0
-        if True:#solution_found:
+        if solution_found or validation:
             solution = copy.deepcopy(solution)
             # If passed the safety test, calculate performance
             # using solution
-            if True:#passed_safety:
+            if passed_safety or validation:
                 if verbose:
                     print("Passed safety test! Calculating performance")
 

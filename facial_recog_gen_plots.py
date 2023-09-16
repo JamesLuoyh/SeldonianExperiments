@@ -23,8 +23,8 @@ def vfae_example(
     spec_rootdir,
     results_base_dir,
     constraints = [],
-    epsilons=[1.18],# 0.45 0.01, , 0.02],
-    n_trials=1,
+    epsilons=[0.15],# 0.45 0.01, , 0.02],
+    n_trials=10,
     data_fracs=np.logspace(-3,0,5),
     baselines = [],
     performance_metric="auc",
@@ -154,7 +154,7 @@ def vfae_example(
         alpha_lambda_l = [1e-3]
         lambda_init_l = [.1]
         epochs_l = [30]
-        delta_l = [0.1]
+        delta_l = [0.3]
         # alpha_l = [1e-4]#, 1e-5] #[1e-4, 1e-5]# [1e-4, 1e-5] #[1e-3, 1e-4]
         # alpha_lambda_l = [1e-3]#[1e-3]#[1e-3,1e-4]#[1e-3, 1e-4] #[1e-2] #[1e-3, 1e-4]
         # lambda_init_l = [.1]#, 1.0, 0.5]#[1.0]#[0.05,0.1,0.2]#[.01, 0.1, 0.5, 1.0]#[1e-2]#[1e-1, 1e-2]#[0.1, 0.15,0.25,0.40,0.65, 1]
