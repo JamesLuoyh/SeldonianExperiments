@@ -67,7 +67,7 @@ class PytorchICVAEBaseline(SupervisedPytorchBaseModel):
         self.use_validation = use_validation
         return self.vfae
     
-    def train(self, X_train, Y_train, batch_size, num_epochs):
+    def train(self, X_train, Y_train, batch_size, num_epochs,data_frac):
         print("Training model...")
         loss_list = []
         accuracy_list = []
@@ -96,7 +96,7 @@ class PytorchICVAEBaseline(SupervisedPytorchBaseModel):
         print(
             f"Running gradient descent with batch_size: {batch_size}, num_epochs={num_epochs}"
         )
-        num_epochs_l = [60]#,30,60,90]#10,20]#30,60,90]
+        num_epochs_l = [int(60/data_frac)]#,30,60,90]#10,20]#30,60,90]
         lr_l = [1e-5]#, 1e-4, 1e-3]
         lam_l = [0.1]#, 1, 10]#np.logspace(-1,0,3)
         for lr in lr_l:
@@ -132,25 +132,29 @@ class PytorchICVAEBaseline(SupervisedPytorchBaseModel):
                         self.pytorch_model.eval()
                         kwargs = {
                             'downstream_lr'     : 1e-4,
-                            'downstream_bs'     : 100,
+                            'downstream_bs'     : 500,
                             'downstream_epochs' : 5,
                             'y_dim'             : 1,
+                            's_dim'             : self.s_dim,
                             'z_dim'             : self.z_dim,
                             'device'            : self.device,
-                            # 'X'                 : X_train
+                            'X'                 : x_valid_tensor.numpy(),
                         }
+                        y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), x_train_tensor.numpy(), y_train_label.numpy(), x_valid_tensor.numpy(), **kwargs)
+                        x_valid_tensor = x_valid_tensor.float().to(self.device)
 
-                        y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), X_train, Y_train, X_valid, **kwargs)
+                        vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor)
                         
-                        # x_valid_tensor = x_valid_tensor.float().to(self.device)
-                        # vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor)
-                        delta_DP = utils.demographic_parity(y_pred, None, **{"X": X_valid})
-                        auc = roc_auc_score(Y_valid, y_pred)
-                        df = pd.read_csv('/media/yuhongluo/SeldonianExperimentResults/icvae.csv')
-                        row = {'delta_dp': delta_DP, 'auc': auc, 'lr': lr, 'lam': lam, 'epoch': num_epochs}
+                        y_pred_all = vae_loss, mi_sz, y_pred
+                        delta_DP = utils.demographic_parity(y_pred_all, None, **kwargs)
+                        # delta_DP = self.demographic_parity(self.vfae.y_prob, x_valid_tensor[:, self.x_dim:self.x_dim+self.s_dim])
+                        auc = roc_auc_score(y_valid_label.numpy(), y_pred)
+                        
+                        df = pd.read_csv('./SeldonianExperimentResults/icvae.csv')
+                        row = {'data_frac':data_frac, 'delta_dp': delta_DP, 'auc': auc, 'lr': lr, 'lam': lam, 'epoch': num_epochs}
                         print(row)
                         df = df.append(row, ignore_index=True)
-                        df.to_csv('/media/yuhongluo/SeldonianExperimentResults/icvae.csv', index=False)
+                        df.to_csv('./SeldonianExperimentResults/icvae.csv', index=False)
 
 
     @staticmethod

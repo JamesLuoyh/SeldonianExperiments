@@ -6,6 +6,7 @@ from torch.distributions import Bernoulli
 import pandas as pd
 import numpy as np
 from sklearn.metrics import roc_auc_score
+import experiments.utils as utils
 
 import torch.nn.functional as F
 class PytorchLMIFR(SupervisedPytorchBaseModel):
@@ -76,6 +77,7 @@ class PytorchLMIFR(SupervisedPytorchBaseModel):
         self.adv_loss = BCELoss()
         self.use_validation = use_validation
         self.epsilon = epsilon
+        self.z_dim = z_dim
         return self.vfae
 
     # set a prior distribution for the sensitive attribute for VAE case
@@ -103,8 +105,11 @@ class PytorchLMIFR(SupervisedPytorchBaseModel):
         g = g / uc
         return np.abs(g[0] - g[1])
 
+    def get_representations(self, X):
+        return self.vfae.get_representations(X)
 
-    def train(self, X_train, Y_train, batch_size, num_epochs):
+
+    def train(self, X_train, Y_train, batch_size, num_epochs,data_frac):
         print("Training model...")
         loss_list = []
         accuracy_list = []
@@ -131,7 +136,7 @@ class PytorchLMIFR(SupervisedPytorchBaseModel):
         epsilon_elbo_l = [10.0]#np.linspace(10,1,3)
         lagrangian_elbo_l = [1.0]#np.logspace(-1,0,3)
         lr_l = [1e-4]#, 1e-3]
-        num_epochs_l = [300]#[200]#200]#,500,200, ,60,90]
+        num_epochs_l = [int(200/data_frac)]#[200]#200]#,500,200, ,60,90]
         adv_rounds_l = [10]#,5,10]
 #    delta_dp  mi_upper       auc        mi  epsilon  lagrangian      lr   epoch  adv_rounds  adv
 # 6   0.076631  9.994654  0.861978  0.021290     10.0         1.0  0.0001    90.0         1.0  NaN
@@ -195,19 +200,34 @@ class PytorchLMIFR(SupervisedPytorchBaseModel):
                                 itot += 1
                           # evaluate validation data
                         if self.use_validation:
-                          self.discriminator.eval()
-                          self.vfae.eval()
-                          self.pytorch_model.eval()
-                          x_valid_tensor = x_valid_tensor.float().to(self.device)
-                          vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor, self.discriminator)
-                          mi_sz_upper_bound = self.vfae.mi_sz_upper_bound
-                          delta_DP = self.demographic_parity(self.vfae.y_prob, x_valid_tensor[:, self.x_dim:self.x_dim+self.s_dim])
-                          auc = roc_auc_score(y_valid_label.numpy(), self.vfae.y_prob.detach().cpu().numpy())
-                          df = pd.read_csv(f'/media/yuhongluo/SeldonianExperimentResults/validation_performance_LMIFR_selected.csv')
-                          row = {'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(), 'mi_upper': mi_sz_upper_bound.mean().item(), 'epsilon':epsilon_elbo, 'lagrangian': lagrangian_elbo, 'lr': lr, 'epoch': num_epochs, 'adv_rounds':adv_rounds}
-                          print(row)
-                          df = df.append(row, ignore_index=True)
-                          df.to_csv(f'/media/yuhongluo/SeldonianExperimentResults/validation_performance_LMIFR_selected.csv', index=False)
+                            self.discriminator.eval()
+                            self.vfae.eval()
+                            self.pytorch_model.eval()
+                            kwargs = {
+                                'downstream_lr'     : 1e-4,
+                                'downstream_bs'     : 500,
+                                'downstream_epochs' : 5,
+                                'y_dim'             : 1,
+                                's_dim'             : self.s_dim,
+                                'z_dim'             : self.z_dim,
+                                'device'            : self.device,
+                                'X'                 : x_valid_tensor.numpy(),
+                            }
+                            y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), x_train_tensor.numpy(), y_train_label.numpy(), x_valid_tensor.numpy(), **kwargs)
+                            x_valid_tensor = x_valid_tensor.float().to(self.device)
+
+                            vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor, self.discriminator)
+                            
+                            mi_sz_upper_bound = self.vfae.mi_sz_upper_bound
+                            y_pred_all = vae_loss, mi_sz, y_pred
+                            delta_DP = utils.demographic_parity(y_pred_all, None, **kwargs)
+                            # delta_DP = self.demographic_parity(self.vfae.y_prob, x_valid_tensor[:, self.x_dim:self.x_dim+self.s_dim])
+                            auc = roc_auc_score(y_valid_label.numpy(), y_pred)
+                            df = pd.read_csv(f'./SeldonianExperimentResults/lmifr.csv')
+                            row = {'data_frac':data_frac, 'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(), 'mi_upper': mi_sz_upper_bound.mean().item(), 'epsilon':epsilon_elbo, 'lagrangian': lagrangian_elbo, 'lr': lr, 'epoch': num_epochs, 'adv_rounds':adv_rounds}
+                            print(row)
+                            df = df.append(row, ignore_index=True)
+                            df.to_csv(f'./SeldonianExperimentResults/lmifr.csv', index=False)
 
     def update_adversary(self, features):
         self.pytorch_model.eval()
@@ -277,6 +297,14 @@ class LagrangianFairTransferableAutoEncoder(Module):
         self.lagrangian = lagrangian
         self.lagrangian_elbo = lagrangian_elbo
         return
+
+    def get_representations(self, inputs):
+        x, s, y = inputs[:,:self.x_dim], inputs[:,self.x_dim:self.x_dim+self.s_dim], inputs[:,-self.y_dim:]
+        # encode
+        x_s = torch.cat([x, s], dim=1)
+        z1_encoded, z1_enc_logvar, z1_enc_mu = self.encoder_z1(x_s)
+        return z1_encoded
+
 
     def forward(self, inputs, discriminator):
         """

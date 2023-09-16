@@ -25,8 +25,8 @@ if __name__ == "__main__":
     torch.manual_seed(2023)
     dataname = ADULTS
     if dataname == ADULTS:
-        data_pth = "../SeldonianEngine/static/datasets/supervised/adults_vfae/vfae_adults.csv"
-        metadata_pth = "../SeldonianEngine/static/datasets/supervised/adults_vfae/metadata_vfae.json"
+        data_pth = "./adults_vfae/vfae_adults.csv"
+        metadata_pth = "./adults_vfae/metadata_vfae.json"
         x_dim = 117
         z_dim = 50
         bs = 150
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         file_type='csv')
 
     # constraint_strs = ['abs((FNR | [M]) - (FNR | [F])) <= 0.02']
-    epsilon = 100
+    epsilon = 0.32
     constraint_strs = [f'VAE <= {epsilon}']
     deltas = [0.1] 
     columns = ["M", "F"]

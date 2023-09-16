@@ -386,7 +386,7 @@ class BaselineExperiment(Experiment):
             y_pred = batch_predictions(
                 baseline_model, solution, X_test_baseline, **perf_eval_kwargs
             )
-        if self.model_name == "vfae":
+        if self.model_name == "VFAE":
             from .baselines.vfae_baseline import PytorchVFAE
             device = perf_eval_kwargs["device"]
             s_dim = spec.optimization_hyperparams.get('s_dim', 1)
@@ -413,7 +413,7 @@ class BaselineExperiment(Experiment):
             y_pred = vae_predictions(
                 baseline_model, solution, X_test_baseline, **perf_eval_kwargs
             )
-        if self.model_name == "controllable_vfae" or self.model_name == 'lmifr':
+        if self.model_name == "controllable_vfae" or self.model_name == 'LMIFR':
             if self.model_name == "controllable_vfae":
                 from .baselines.controllable_vfae import PytorchLMIFR
             else:
@@ -446,7 +446,7 @@ class BaselineExperiment(Experiment):
             y_pred = vae_predictions(
                 baseline_model, solution, X_test_baseline, **perf_eval_kwargs
             )
-        if self.model_name == "icvae_baseline":
+        if self.model_name == "ICVAE":
             from .baselines.icvae_noadv import PytorchICVAEBaseline
 
             device = perf_eval_kwargs["device"]

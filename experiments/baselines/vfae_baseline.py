@@ -64,7 +64,7 @@ class PytorchVFAE(SupervisedPytorchBaseModel):
         self.lr = lr
         self.s_dim = s_dim
         self.x_dim = x_dim
-        
+        self.z_dim = z_dim
         self.use_validation = use_validation
         self.epsilon = epsilon
         return self.vfae
@@ -74,6 +74,10 @@ class PytorchVFAE(SupervisedPytorchBaseModel):
         pu_dist = Bernoulli(probs=torch.tensor(pu).to(self.device))
         self.vfae.set_pu(pu_dist)
         return
+
+
+    def get_representations(self, X):
+        return self.vfae.get_representations(X)
 
     # def predict(self, solution, X, **kwargs):
     #     y_pred_super = super().predict(solution, X, **kwargs)
@@ -95,7 +99,7 @@ class PytorchVFAE(SupervisedPytorchBaseModel):
         return np.abs(g[0] - g[1])
 
 
-    def train(self, X_train, Y_train, batch_size, num_epochs):
+    def train(self, X_train, Y_train, batch_size, num_epochs,data_frac):
         print("Training model...")
         loss_list = []
         accuracy_list = []
@@ -123,7 +127,7 @@ class PytorchVFAE(SupervisedPytorchBaseModel):
         lr_l = [1e-5]#[1e-4, 1e-3]
         beta_l = [1.0]#, 10]#1e-4, 1e-3, 1e-2, 1e-1]
         gamma_l = [1.0]
-        num_epochs_l = [60]#[10,20,30,60,90]#, 200, 500]#[30,60,90]#,500,200, ,60,90]
+        num_epochs_l = [int(60/data_frac)]#[10,20,30,60,90]#, 200, 500]#[30,60,90]#,500,200, ,60,90]
         for lr in lr_l:
             for beta in beta_l:
                 for gamma in gamma_l:
@@ -158,15 +162,30 @@ class PytorchVFAE(SupervisedPytorchBaseModel):
                                 # evaluate validation data
                             self.vfae.eval()
                             self.pytorch_model.eval()
+                            kwargs = {
+                                'downstream_lr'     : 1e-4,
+                                'downstream_bs'     : 500,
+                                'downstream_epochs' : 5,
+                                'y_dim'             : 1,
+                                's_dim'             : self.s_dim,
+                                'z_dim'             : self.z_dim,
+                                'device'            : self.device,
+                                'X'                 : x_valid_tensor.numpy(),
+                            }
+                            y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), x_train_tensor.numpy(), y_train_label.numpy(), x_valid_tensor.numpy(), **kwargs)
                             x_valid_tensor = x_valid_tensor.float().to(self.device)
+
                             vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor)
-                            delta_DP = self.demographic_parity(self.vfae.y_prob, x_valid_tensor[:, self.x_dim:self.x_dim+self.s_dim])
-                            auc = roc_auc_score(y_valid_label.numpy(), self.vfae.y_prob.detach().cpu().numpy())
-                            df = pd.read_csv(f'/media/yuhongluo/SeldonianExperimentResults/validation_performance_VFAE.csv')
-                            row = {'auc': auc, 'delta_dp': delta_DP, 'lr':lr, 'beta': beta, 'gamma': gamma, 'epoch': num_epochs}
+                            
+                            y_pred_all = vae_loss, mi_sz, y_pred
+                            delta_DP = utils.demographic_parity(y_pred_all, None, **kwargs)
+                            # delta_DP = self.demographic_parity(self.vfae.y_prob, x_valid_tensor[:, self.x_dim:self.x_dim+self.s_dim])
+                            auc = roc_auc_score(y_valid_label.numpy(), y_pred)
+                            df = pd.read_csv(f'./SeldonianExperimentResults/validation_performance_VFAE.csv')
+                            row = {'data_frac':data_frac, 'auc': auc, 'delta_dp': delta_DP, 'lr':lr, 'beta': beta, 'gamma': gamma, 'epoch': num_epochs}
                             print(row)
                             df = df.append(row, ignore_index=True)
-                            df.to_csv(f'/media/yuhongluo/SeldonianExperimentResults/validation_performance_VFAE.csv', index=False)
+                            df.to_csv(f'./SeldonianExperimentResults/validation_performance_VFAE.csv', index=False)
 
 
 class VFAE(Module):
@@ -215,6 +234,13 @@ class VFAE(Module):
         self.lagrangian = lagrangian
         self.lagrangian_elbo = lagrangian_elbo
         return
+    
+    def get_representations(self, inputs):
+        x, s, y = inputs[:,:self.x_dim], inputs[:,self.x_dim:self.x_dim+self.s_dim], inputs[:,-self.y_dim:]
+        # encode
+        x_s = torch.cat([x, s], dim=1)
+        z1_encoded, z1_enc_logvar, z1_enc_mu = self.encoder_z1(x_s)
+        return z1_encoded
 
     def forward(self, inputs):
         """
