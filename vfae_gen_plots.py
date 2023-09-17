@@ -37,7 +37,7 @@ def vfae_example(
     validation=True,
     device_id=0,
 ):  
-    data_fracs = [0.1,0.15,0.25,0.40,0.65, 1]#0.1,0.15,0.25,0.40,0.65, 1]#[1]#[0.1, 0.15,0.25,0.40,0.65, 1]# 0.15,0.25,0.40,0.65, 1][1, 0.65, 0.40, 0.25, 0.15, 0.1] #[1]#[0.1, 0.15,0.25,0.40,0.65, 1]#0.1, 0.15,0.25,0.40,0.65, [0.01, 0.025, , 0.15, 0.5, 1]  # 0.01, 0.025, 0.06, 0.15, 0.5, #0.001,0.01,0.05,0.1,0.33,0.66,1
+    data_fracs = [0.1,0.15,0.25,0.40,0.65, 1]##[1]#[0.1, 0.15,0.25,0.40,0.65, 1]# 0.15,0.25,0.40,0.65, 1][1, 0.65, 0.40, 0.25, 0.15, 0.1] #[1]#[0.1, 0.15,0.25,0.40,0.65, 1]#0.1, 0.15,0.25,0.40,0.65, [0.01, 0.025, , 0.15, 0.5, 1]  # 0.01, 0.025, 0.06, 0.15, 0.5, #0.001,0.01,0.05,0.1,0.33,0.66,1
     
     # for baseline
 
@@ -239,7 +239,7 @@ def vfae_example(
                                 results_dir=results_dir,
                                 perf_eval_kwargs=perf_eval_kwargs,
                             )
-                            plot_generator.run_seldonian_experiment(verbose=verbose, model_name='FRG',validation=validation, dataset_name='Adult')
+                            # plot_generator.run_seldonian_experiment(verbose=verbose, model_name='FRG',validation=validation, dataset_name='Adult')
                             for baseline_model in baselines:
                                 plot_generator.run_baseline_experiment(
                                     model_name=baseline_model, verbose=verbose,validation=validation, dataset_name='Adult'
@@ -294,7 +294,7 @@ if __name__ == "__main__":
     device_id = int(args.device)
 
     if include_baselines:
-        baselines = ["ICVAE"]#,"ICVAE","VFAE", "VAE"LMIFR"controllable_vfae"] # icvae_baseline, vfae, controllable_vfae, lmifr
+        baselines = ["LMIFR"]#,"ICVAE","VFAE", "VAE"LMIFR"controllable_vfae"] # icvae_baseline, vfae, controllable_vfae, lmifr
     else:
         baselines = []
 

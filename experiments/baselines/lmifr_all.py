@@ -91,20 +91,6 @@ class PytorchLMIFR(SupervisedPytorchBaseModel):
     #     y_pred = softmax(y_pred_super, axis=-1)[:, 1]
     #     return y_pred
 
-    @staticmethod
-    def demographic_parity(y_prob, s):
-        g, uc = np.zeros([2]), np.zeros([2])
-        y_ = (y_prob > 0.5).float()
-        for i in range(s.shape[0]):
-            if s[i] > 0:
-                g[1] += y_[i].item()
-                uc[1] += 1
-            else:
-                g[0] += y_[i].item()
-                uc[0] += 1
-        g = g / uc
-        return np.abs(g[0] - g[1])
-
     def get_representations(self, X):
         return self.vfae.get_representations(X)
 
@@ -133,11 +119,19 @@ class PytorchLMIFR(SupervisedPytorchBaseModel):
         print(
             f"Running gradient descent with batch_size: {batch_size}, num_epochs={num_epochs}"
         )
+        # # 0.1, 0.25, 0.40
         epsilon_elbo_l = [10.0]#np.linspace(10,1,3)
         lagrangian_elbo_l = [1.0]#np.logspace(-1,0,3)
         lr_l = [1e-4]#, 1e-3]
-        num_epochs_l = [int(200/data_frac)]#[200]#200]#,500,200, ,60,90]
-        adv_rounds_l = [10]#,5,10]
+        num_epochs_l = [int(90/data_frac)]#[200]#200]#,500,200, ,60,90]
+        adv_rounds_l = [1]#,5,10]
+        
+        # 1,0.65,0.15
+        # epsilon_elbo_l = [1.0]#np.linspace(10,1,3)
+        # lagrangian_elbo_l = [1.0]#np.logspace(-1,0,3)
+        # lr_l = [1e-3]#, 1e-3]
+        # num_epochs_l = [int(90/data_frac)]#[200]#200]#,500,200, ,60,90]
+        # adv_rounds_l = [1]#,5,10]
 #    delta_dp  mi_upper       auc        mi  epsilon  lagrangian      lr   epoch  adv_rounds  adv
 # 6   0.076631  9.994654  0.861978  0.021290     10.0         1.0  0.0001    90.0         1.0  NaN
 # 62  0.077229  3.689131  0.856872  0.014969      5.5         1.0  0.0001   500.0        10.0  NaN
@@ -204,25 +198,22 @@ class PytorchLMIFR(SupervisedPytorchBaseModel):
                             self.vfae.eval()
                             self.pytorch_model.eval()
                             kwargs = {
-                                'downstream_lr'     : 1e-4,
-                                'downstream_bs'     : 500,
-                                'downstream_epochs' : 5,
                                 'y_dim'             : 1,
                                 's_dim'             : self.s_dim,
                                 'z_dim'             : self.z_dim,
                                 'device'            : self.device,
                                 'X'                 : x_valid_tensor.numpy(),
                             }
-                            y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), x_train_tensor.numpy(), y_train_label.numpy(), x_valid_tensor.numpy(), **kwargs)
+                            # y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), x_train_tensor.numpy(), y_train_label.numpy(), x_valid_tensor.numpy(), **kwargs)
                             x_valid_tensor = x_valid_tensor.float().to(self.device)
 
                             vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor, self.discriminator)
                             
                             mi_sz_upper_bound = self.vfae.mi_sz_upper_bound
-                            y_pred_all = vae_loss, mi_sz, y_pred
+                            y_pred_all = vae_loss, mi_sz, y_prob.detach().cpu().numpy()
                             delta_DP = utils.demographic_parity(y_pred_all, None, **kwargs)
                             # delta_DP = self.demographic_parity(self.vfae.y_prob, x_valid_tensor[:, self.x_dim:self.x_dim+self.s_dim])
-                            auc = roc_auc_score(y_valid_label.numpy(), y_pred)
+                            auc = roc_auc_score(y_valid_label.numpy(), y_prob.detach().cpu().numpy())
                             df = pd.read_csv(f'./SeldonianExperimentResults/lmifr.csv')
                             row = {'data_frac':data_frac, 'auc': auc, 'delta_dp': delta_DP, 'mi': mi_sz.mean().item(), 'mi_upper': mi_sz_upper_bound.mean().item(), 'epsilon':epsilon_elbo, 'lagrangian': lagrangian_elbo, 'lr': lr, 'epoch': num_epochs, 'adv_rounds':adv_rounds}
                             print(row)

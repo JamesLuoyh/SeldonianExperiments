@@ -163,24 +163,20 @@ class PytorchVFAE(SupervisedPytorchBaseModel):
                             self.vfae.eval()
                             self.pytorch_model.eval()
                             kwargs = {
-                                'downstream_lr'     : 1e-4,
-                                'downstream_bs'     : 500,
-                                'downstream_epochs' : 5,
                                 'y_dim'             : 1,
                                 's_dim'             : self.s_dim,
                                 'z_dim'             : self.z_dim,
                                 'device'            : self.device,
                                 'X'                 : x_valid_tensor.numpy(),
                             }
-                            y_pred = utils.unsupervised_downstream_predictions(self, self.get_model_params(), x_train_tensor.numpy(), y_train_label.numpy(), x_valid_tensor.numpy(), **kwargs)
                             x_valid_tensor = x_valid_tensor.float().to(self.device)
 
                             vae_loss, mi_sz, y_prob = self.pytorch_model(x_valid_tensor)
                             
-                            y_pred_all = vae_loss, mi_sz, y_pred
+                            y_pred_all = vae_loss, mi_sz, y_prob.detach().cpu().numpy()
                             delta_DP = utils.demographic_parity(y_pred_all, None, **kwargs)
                             # delta_DP = self.demographic_parity(self.vfae.y_prob, x_valid_tensor[:, self.x_dim:self.x_dim+self.s_dim])
-                            auc = roc_auc_score(y_valid_label.numpy(), y_pred)
+                            auc = roc_auc_score(y_valid_label.numpy(), y_prob.detach().cpu().numpy())
                             df = pd.read_csv(f'./SeldonianExperimentResults/validation_performance_VFAE.csv')
                             row = {'data_frac':data_frac, 'auc': auc, 'delta_dp': delta_DP, 'lr':lr, 'beta': beta, 'gamma': gamma, 'epoch': num_epochs}
                             print(row)

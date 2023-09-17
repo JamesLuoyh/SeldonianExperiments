@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     initial_solution_fn = model.get_model_params
     frac_data_in_safety = 0.5
-    dataset.meta_information["self_supervised"] = True
+    # dataset.meta_information["self_supervised"] = True
     spec = SupervisedSpec(
         dataset=dataset,
         model=model,
