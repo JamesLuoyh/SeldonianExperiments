@@ -208,10 +208,7 @@ class VariationalMLP(Module):
         self.logvar_encoder = Linear(hidden_dim, z_dim)
         # self.mu_encoder = Linear(hidden_dim, z_dim)
 
-        self.mu_encoder = Sequential(
-          Linear(hidden_dim, z_dim),
-          Sigmoid(),
-        )
+        self.mu_encoder = Linear(hidden_dim, z_dim)
         # self.tanh = Tanh()
 
     def forward(self, inputs):
@@ -228,8 +225,8 @@ class VariationalMLP(Module):
         mu = self.mu_encoder(x)
 
         # reparameterization trick: we draw a random z
-        # epsilon = torch.randn_like(mu)
-        epsilon = torch.normal(mean=0, std=1, size=sigma.shape).to(mu.get_device())
+        epsilon = torch.randn_like(mu)
+        # epsilon = torch.normal(mean=0, std=1, size=sigma.shape).to(mu.get_device())
         z = logvar * epsilon + mu # torch.randn_like(mu) epsilon * mu + logvar #
         return z, logvar, mu
 
@@ -323,7 +320,7 @@ class VFAELoss(Module):
         # loss *= 0.1
         # print("loss" Zh,loss)
         # print(reconstruction_loss, kl_loss_z1)
-        # loss += self.alpha * supervised_loss
+        loss += self.alpha * supervised_loss
         # compute mmd only if protected and non protected in batch
         # z1_enc = y_pred['z1_encoded']
         # z1_protected, z1_non_protected = self._separate_protected(z1_enc, s)
