@@ -142,7 +142,6 @@ class VariationalFairAutoEncoder(Module):
 
         z1_s = torch.cat([z1_encoded, s], dim=1)
         x_decoded = self.decoder_x(z1_s)
-
         y_decoded = self.decoder_y(z1_encoded)
         s_decoded = discriminator(z1_encoded)
         if self.s_dim == 1:
@@ -298,7 +297,7 @@ class VFAELoss(Module):
         :return: the loss value as Tensor
         """
         x, s, y = y_true['x'], y_true['s'], y_true['y']
-        x_s = torch.cat([x, s], dim=-1)
+        # x_s = torch.cat([x, s], dim=-1)
         device = y.device
         supervised_loss = self.bce(y_pred['y_decoded'], y.to(device))
         reconstruction_loss = F.binary_cross_entropy(y_pred['x_decoded'], x, reduction='sum')
