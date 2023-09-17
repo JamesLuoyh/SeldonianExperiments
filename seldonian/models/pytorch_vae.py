@@ -89,7 +89,7 @@ class VariationalFairAutoEncoder(Module):
 
         self.decoder_z1 = VariationalMLP(z_dim + y_dim, z1_dec_dim, z_dim, activation)
         self.decoder_y = DecoderMLP(z_dim, x_dec_dim, self.y_out_dim, activation)
-        self.decoder_x = DecoderMLP(z_dim + s_dim, x_dec_dim, x_dim + s_dim, activation)
+        self.decoder_x = DecoderMLP(z_dim + s_dim, x_dec_dim, x_dim, activation)
 
         self.dropout = Dropout(dropout_rate)
         self.x_dim = x_dim
@@ -221,13 +221,12 @@ class VariationalMLP(Module):
         """
         x = self.encoder(inputs)
         logvar = self.logvar_encoder(x)
-        sigma = torch.exp(0.5 * logvar) #torch.sqrt(torch.exp(logvar))
+        sigma = torch.sqrt(torch.exp(logvar))
         mu = self.mu_encoder(x)
 
         # reparameterization trick: we draw a random z
-        epsilon = torch.randn_like(mu)
-        # epsilon = torch.normal(mean=0, std=1, size=sigma.shape).to(mu.get_device())
-        z = sigma * epsilon + mu # torch.randn_like(mu) epsilon * mu + logvar #
+        # epsilon = torch.randn_like(mu)
+        z = sigma * torch.randn_like(mu) + mu
         return z, logvar, mu
 
 # class VariationalMLP(Module):
@@ -302,7 +301,7 @@ class VFAELoss(Module):
         x_s = torch.cat([x, s], dim=-1)
         device = y.device
         supervised_loss = self.bce(y_pred['y_decoded'], y.to(device))
-        reconstruction_loss = F.binary_cross_entropy(y_pred['x_decoded'], x_s, reduction='sum')
+        reconstruction_loss = F.binary_cross_entropy(y_pred['x_decoded'], x, reduction='sum')
         zeros = torch.zeros_like(y_pred['z1_enc_logvar'])
         kl_loss_z1 = self._kl_gaussian(y_pred['z1_enc_logvar'],
                                        y_pred['z1_enc_mu'],
