@@ -317,7 +317,7 @@ class VFAELoss(Module):
         #                                zeros)
         loss = reconstruction_loss + kl_loss_z1
         loss /= len(y)
-        # loss *= 0.1
+        loss *= 0.1
         # print("loss" Zh,loss)
         # print(reconstruction_loss, kl_loss_z1)
         loss += self.alpha * supervised_loss

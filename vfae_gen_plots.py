@@ -36,8 +36,9 @@ def vfae_example(
     dataset=ADULTS,
     validation=True,
     device_id=0,
+    version=0,
 ):  
-    data_fracs = [0.1,0.15,0.25,0.40,0.65, 1]##[1]#[0.1, 0.15,0.25,0.40,0.65, 1]# 0.15,0.25,0.40,0.65, 1][1, 0.65, 0.40, 0.25, 0.15, 0.1] #[1]#[0.1, 0.15,0.25,0.40,0.65, 1]#0.1, 0.15,0.25,0.40,0.65, [0.01, 0.025, , 0.15, 0.5, 1]  # 0.01, 0.025, 0.06, 0.15, 0.5, #0.001,0.01,0.05,0.1,0.33,0.66,1
+    data_fracs = [1]#0.1,0.15,0.25,0.40,0.65, 1]##[1]#[0.1, 0.15,0.25,0.40,0.65, 1]# 0.15,0.25,0.40,0.65, 1][1, 0.65, 0.40, 0.25, 0.15, 0.1] #[1]#[0.1, 0.15,0.25,0.40,0.65, 1]#0.1, 0.15,0.25,0.40,0.65, [0.01, 0.025, , 0.15, 0.5, 1]  # 0.01, 0.025, 0.06, 0.15, 0.5, #0.001,0.01,0.05,0.1,0.33,0.66,1
     
     # for baseline
 
@@ -239,7 +240,8 @@ def vfae_example(
                                 results_dir=results_dir,
                                 perf_eval_kwargs=perf_eval_kwargs,
                             )
-                            # plot_generator.run_seldonian_experiment(verbose=verbose, model_name='FRG',validation=validation, dataset_name='Adult')
+                            if int(version) == 1:
+                                plot_generator.run_seldonian_experiment(verbose=verbose, model_name='FRG',validation=validation, dataset_name='Adult')
                             for baseline_model in baselines:
                                 plot_generator.run_baseline_experiment(
                                     model_name=baseline_model, verbose=verbose,validation=validation, dataset_name='Adult'
@@ -280,6 +282,7 @@ if __name__ == "__main__":
     parser.add_argument('--include_baselines', help='include_baselines', action="store_true")
     parser.add_argument('--verbose', help='verbose', action="store_true")
     parser.add_argument('--validation', help='verbose', action="store_true")
+    parser.add_argument('--version', help='version', default=0)
     parser.add_argument('--device', help='device id', default=0)
 
     args = parser.parse_args()
@@ -291,6 +294,7 @@ if __name__ == "__main__":
     include_baselines = args.include_baselines
     verbose = args.verbose
     validation = args.validation
+    version = int(args.version)
     device_id = int(args.device)
 
     if include_baselines:
@@ -312,6 +316,7 @@ if __name__ == "__main__":
         dataset = dataset,
         baselines = baselines,
         validation = validation,
-        device_id=device_id
+        device_id=device_id,
+        version=version
     )
     
